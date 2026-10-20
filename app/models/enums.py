@@ -1,0 +1,270 @@
+from enum import StrEnum
+
+
+class TipoNivel(StrEnum):
+    COLEGIO = "COLEGIO"
+    UNIVERSIDAD_TECNICA = "UNIVERSIDAD_TECNICA"
+
+
+class NivelCognitivo(StrEnum):
+    BASICO = "BASICO"
+    INTERMEDIO = "INTERMEDIO"
+    AVANZADO = "AVANZADO"
+
+
+class EstadoPlan(StrEnum):
+    GENERADO = "GENERADO"
+    EN_PROGRESO = "EN_PROGRESO"
+    COMPLETADO = "COMPLETADO"
+
+
+class EstadoActividad(StrEnum):
+    PENDIENTE = "PENDIENTE"
+    COMPLETADA = "COMPLETADA"
+    OMITIDA = "OMITIDA"
+
+
+class PlanSuscripcion(StrEnum):
+    GRATUITO = "GRATUITO"
+    PREMIUM = "PREMIUM"
+
+
+class EstadoSuscripcion(StrEnum):
+    ACTIVA = "ACTIVA"
+    VENCIDA = "VENCIDA"
+    CANCELADA = "CANCELADA"
+
+
+class OpcionRespuesta(StrEnum):
+    A = "A"
+    B = "B"
+    C = "C"
+    D = "D"
+
+
+class EstadoCuenta(StrEnum):
+    ACTIVA = "ACTIVA"
+    PENDIENTE_AUTORIZACION = "PENDIENTE_AUTORIZACION"
+
+
+class EstadoAutorizacion(StrEnum):
+    PENDIENTE_VERIFICACION = "PENDIENTE_VERIFICACION"
+    AUTORIZADA = "AUTORIZADA"
+    REVOCADA = "REVOCADA"
+    VENCIDA = "VENCIDA"
+
+
+class RolMensaje(StrEnum):
+    USUARIO = "USUARIO"
+    TUTOR = "TUTOR"
+
+
+class EstadoConversacion(StrEnum):
+    ABIERTA = "ABIERTA"
+    CERRADA = "CERRADA"
+
+
+class IntencionMensaje(StrEnum):
+    CONSULTA = "CONSULTA"
+    RESOLVER_TAREA = "RESOLVER_TAREA"
+
+
+class AmbitoMensaje(StrEnum):
+    ACADEMICO = "ACADEMICO"
+    NO_ACADEMICO = "NO_ACADEMICO"
+    RIESGO = "RIESGO"
+
+
+class TipoEvento(StrEnum):
+    PIDE_EJEMPLO = "PIDE_EJEMPLO"
+    PIDE_VISUAL = "PIDE_VISUAL"
+    PIDE_PASO_A_PASO = "PIDE_PASO_A_PASO"
+    PIDE_SIMPLIFICAR = "PIDE_SIMPLIFICAR"
+    PIDE_MAS_DETALLE = "PIDE_MAS_DETALLE"
+    PIDE_RESUMEN = "PIDE_RESUMEN"
+    NO_ENTENDIO = "NO_ENTENDIO"
+    PIDE_RESPUESTA_DIRECTA = "PIDE_RESPUESTA_DIRECTA"
+    REPREGUNTA = "REPREGUNTA"
+    FEEDBACK_UTIL = "FEEDBACK_UTIL"
+    FEEDBACK_NO_UTIL = "FEEDBACK_NO_UTIL"
+    ACTIVIDAD_COMPLETADA = "ACTIVIDAD_COMPLETADA"
+
+
+class MotivoFeedback(StrEnum):
+    MUY_LARGO = "MUY_LARGO"
+    MUY_CORTO = "MUY_CORTO"
+    NO_ENTENDI = "NO_ENTENDI"
+    MUY_FACIL = "MUY_FACIL"
+    MUY_DIFICIL = "MUY_DIFICIL"
+    OTRO = "OTRO"
+
+
+class FormatoExplicacion(StrEnum):
+    EJEMPLO = "EJEMPLO"
+    PASO_A_PASO = "PASO_A_PASO"
+    VISUAL = "VISUAL"
+    ANALOGIA = "ANALOGIA"
+    FORMAL = "FORMAL"
+    TEORIA = "TEORIA"
+
+
+class NivelDetalle(StrEnum):
+    BREVE = "BREVE"
+    MEDIO = "MEDIO"
+    DETALLADO = "DETALLADO"
+
+
+class Ritmo(StrEnum):
+    LENTO = "LENTO"
+    MEDIO = "MEDIO"
+    RAPIDO = "RAPIDO"
+
+
+class TipoFuente(StrEnum):
+    TEXTO = "TEXTO"
+    IMAGEN = "IMAGEN"
+    VIDEO = "VIDEO"
+
+
+class CategoriaFuente(StrEnum):
+    ACADEMICA_ABIERTA = "ACADEMICA_ABIERTA"
+    INSTITUCIONAL_OFICIAL = "INSTITUCIONAL_OFICIAL"
+    EDUCATIVA_ABIERTA = "EDUCATIVA_ABIERTA"
+    REFERENCIA = "REFERENCIA"
+    CURADA = "CURADA"
+    WEB_GENERAL = "WEB_GENERAL"
+
+
+class CategoriaImagen(StrEnum):
+    PATRIMONIO_ABIERTO = "PATRIMONIO_ABIERTO"
+    CIENCIA_Y_GOBIERNO = "CIENCIA_Y_GOBIERNO"
+    REPOSITORIO_COLABORATIVO = "REPOSITORIO_COLABORATIVO"
+    ARTICULOS_ABIERTOS = "ARTICULOS_ABIERTOS"
+    EDUCATIVA_ABIERTA = "EDUCATIVA_ABIERTA"
+
+
+class EstadoVideo(StrEnum):
+    PENDIENTE_REVISION = "PENDIENTE_REVISION"
+    APROBADO = "APROBADO"
+    RETIRADO = "RETIRADO"
+
+
+class TipoRecursoVisual(StrEnum):
+    REAL = "REAL"
+    DIAGRAMA = "DIAGRAMA"
+    IA = "IA"
+
+
+class TipoVisualPreferido(StrEnum):
+    IMAGEN_REAL = "IMAGEN_REAL"
+    DIAGRAMA = "DIAGRAMA"
+    ILUSTRACION_IA = "ILUSTRACION_IA"
+
+
+class EstadoTrabajoVisual(StrEnum):
+    NO_NECESARIO = "NO_NECESARIO"
+    PENDIENTE = "PENDIENTE"
+    PROCESANDO = "PROCESANDO"
+    LISTO = "LISTO"
+    FALLIDO = "FALLIDO"
+
+
+class EstadoArchivo(StrEnum):
+    SUBIDO = "SUBIDO"
+    ADJUNTO = "ADJUNTO"
+    ELIMINADO = "ELIMINADO"
+
+
+class ContextoArchivo(StrEnum):
+    ACTIVIDAD = "ACTIVIDAD"
+    CONVERSACION = "CONVERSACION"
+
+
+class ProveedorIA(StrEnum):
+    ANTHROPIC = "ANTHROPIC"
+    OPENAI = "OPENAI"
+
+
+class OperacionIA(StrEnum):
+    CUESTIONARIO = "CUESTIONARIO"
+    PLAN = "PLAN"
+    TUTOR = "TUTOR"
+    CONSOLIDACION = "CONSOLIDACION"
+    MODERACION = "MODERACION"
+    IMAGEN = "IMAGEN"
+
+
+class CampoUso(StrEnum):
+    MENSAJES = "mensajes"
+    PLANES = "planes"
+    IMAGENES_IA = "imagenes_ia"
+    BUSQUEDAS_VIDEO = "busquedas_video"
+    ARCHIVOS = "archivos"
+
+
+class Capacidad(StrEnum):
+    HISTORIAL_COMPLETO = "HISTORIAL_COMPLETO"
+    REPORTE_PROGRESO = "REPORTE_PROGRESO"
+    TEMAS_SIMULTANEOS = "TEMAS_SIMULTANEOS"
+
+
+class OrigenAlerta(StrEnum):
+    AUTOMATICA = "AUTOMATICA"
+    USUARIO = "USUARIO"
+
+
+class CategoriaAlerta(StrEnum):
+    AUTOLESION = "AUTOLESION"
+    SEXUAL = "SEXUAL"
+    VIOLENCIA = "VIOLENCIA"
+    ACOSO = "ACOSO"
+    ILICITO = "ILICITO"
+    NO_ACADEMICO_REITERADO = "NO_ACADEMICO_REITERADO"
+    CONTENIDO_INCORRECTO = "CONTENIDO_INCORRECTO"
+    OTRO = "OTRO"
+
+
+class EstadoAlerta(StrEnum):
+    ABIERTA = "ABIERTA"
+    REVISADA = "REVISADA"
+
+
+class FinalidadConsentimiento(StrEnum):
+    TRATAMIENTO = "TRATAMIENTO"
+    TRANSFERENCIA_INTERNACIONAL = "TRANSFERENCIA_INTERNACIONAL"
+    PERSONALIZACION = "PERSONALIZACION"
+    COMUNICACIONES = "COMUNICACIONES"
+    COMPRAS_MENOR = "COMPRAS_MENOR"
+    OPINION_MENOR = "OPINION_MENOR"
+
+
+class OtorgadoPor(StrEnum):
+    TITULAR = "TITULAR"
+    REPRESENTANTE_LEGAL = "REPRESENTANTE_LEGAL"
+
+
+class TipoSolicitud(StrEnum):
+    CONSULTA = "CONSULTA"
+    RECLAMO = "RECLAMO"
+    RECTIFICACION = "RECTIFICACION"
+    SUPRESION = "SUPRESION"
+    REVOCATORIA = "REVOCATORIA"
+
+
+class EstadoSolicitud(StrEnum):
+    RECIBIDA = "RECIBIDA"
+    EN_TRAMITE = "EN_TRAMITE"
+    RESPONDIDA = "RESPONDIDA"
+    RECHAZADA = "RECHAZADA"
+
+
+class GrupoEdad(StrEnum):
+    ADOLESCENTE_TEMPRANO = "ADOLESCENTE_TEMPRANO"
+    ADOLESCENTE = "ADOLESCENTE"
+    ADULTO = "ADULTO"
+
+
+class AccionModeracion(StrEnum):
+    CONTINUAR = "CONTINUAR"
+    APOYO = "APOYO"
+    RECHAZAR = "RECHAZAR"

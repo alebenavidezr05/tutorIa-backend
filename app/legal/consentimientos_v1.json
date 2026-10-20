@@ -1,0 +1,29 @@
+{
+  "vigente_desde": "2026-10-18",
+  "finalidades": {
+    "TRATAMIENTO": {
+      "obligatoria": true,
+      "texto": "Autorizo el tratamiento de mis datos personales para crear y operar mi cuenta de estudio en TutorIA, según la política de tratamiento."
+    },
+    "TRANSFERENCIA_INTERNACIONAL": {
+      "obligatoria": true,
+      "texto": "Autorizo la transferencia de los datos necesarios a proveedores ubicados fuera de Colombia (Anthropic, OpenAI y Amazon Web Services en Estados Unidos) para generar y moderar las explicaciones y alojar el servicio."
+    },
+    "PERSONALIZACION": {
+      "obligatoria": false,
+      "texto": "Autorizo que TutorIA aprenda cómo prefiero que me expliquen (solo información pedagógica) para adaptar las respuestas. Puedo desactivarlo cuando quiera."
+    },
+    "COMUNICACIONES": {
+      "obligatoria": false,
+      "texto": "Acepto recibir correos sobre novedades de TutorIA. Puedo retirar esta autorización cuando quiera."
+    },
+    "COMPRAS_MENOR": {
+      "obligatoria": false,
+      "texto": "Como representante legal, autorizo que el estudiante adquiera el plan Premium."
+    },
+    "OPINION_MENOR": {
+      "obligatoria": false,
+      "texto": "Entiendo qué datos guarda TutorIA sobre mí y para qué los usa."
+    }
+  }
+}

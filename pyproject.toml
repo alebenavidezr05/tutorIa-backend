@@ -1,0 +1,26 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "almacen_local"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "B008", "B027", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N802", "N806"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "db: requiere PostgreSQL real (se omite si TEST_DATABASE_URL no apunta a PostgreSQL)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = false
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
+exclude = ["^\\.venv/", "^tests/"]
