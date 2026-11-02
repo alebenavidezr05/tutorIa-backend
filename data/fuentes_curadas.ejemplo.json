@@ -1,13 +1,37 @@
 [
   {
-    "titulo": "Lineamientos curriculares de Ciencias Naturales y Educación Ambiental",
-    "autor": "Ministerio de Educación Nacional de Colombia",
-    "sitio": "Ministerio de Educación Nacional",
-    "url": "https://www.mineducacion.gov.co/ejemplo-reemplazar-por-url-verificada",
-    "extracto": "EJEMPLO: reemplace este texto por un extracto verificado del documento oficial antes de cargarlo.",
+    "titulo": "EJEMPLO — Enfermedades del corazón",
+    "autor": "Biblioteca Nacional de Medicina de EE. UU.",
+    "sitio": "MedlinePlus en español",
+    "url": "https://medlineplus.gov/spanish/heartdiseases.html",
+    "extracto": "EJEMPLO: reemplace este texto por un extracto breve copiado del documento (dominio público; atribuir a MedlinePlus) antes de cargarlo.",
     "autoridad": 4,
     "idioma": "es",
-    "licencia": null,
+    "licencia": "Dominio público",
+    "doi": null,
+    "fecha_publicacion": null
+  },
+  {
+    "titulo": "EJEMPLO — Diabetes",
+    "autor": "Biblioteca Nacional de Medicina de EE. UU.",
+    "sitio": "MedlinePlus en español",
+    "url": "https://medlineplus.gov/spanish/diabetes.html",
+    "extracto": "EJEMPLO: reemplace este texto por un extracto breve copiado del documento (dominio público; atribuir a MedlinePlus) antes de cargarlo.",
+    "autoridad": 4,
+    "idioma": "es",
+    "licencia": "Dominio público",
+    "doi": null,
+    "fecha_publicacion": null
+  },
+  {
+    "titulo": "EJEMPLO — Cómo prevenir las enfermedades del corazón",
+    "autor": "Biblioteca Nacional de Medicina de EE. UU.",
+    "sitio": "MedlinePlus en español",
+    "url": "https://medlineplus.gov/spanish/howtopreventheartdisease.html",
+    "extracto": "EJEMPLO: reemplace este texto por un extracto breve copiado del documento (dominio público; atribuir a MedlinePlus) antes de cargarlo.",
+    "autoridad": 4,
+    "idioma": "es",
+    "licencia": "Dominio público",
     "doi": null,
     "fecha_publicacion": null
   }

@@ -44,9 +44,10 @@ def herramienta_buscar_fuentes() -> HerramientaLLM:
     return HerramientaLLM(
         nombre=BUSCAR_FUENTES,
         descripcion=(
-            "Recupera fuentes verificables (académicas, institucionales, educativas y de "
-            "referencia) sobre un concepto. Úsala antes de afirmar cualquier hecho. Devuelve "
-            "id_fuente, título, sitio, categoría, autoridad (1 a 4) y un extracto."
+            "Recupera fuentes verificables (académicas, institucionales, educativas, de "
+            "referencia y prensa confiable) sobre un concepto. Úsala antes de afirmar cualquier "
+            "hecho. Devuelve id_fuente, título, sitio, categoría, autoridad (2 a 4) y un "
+            "extracto. Las fuentes ya están filtradas; nunca propongas ni cites otras."
         ),
         esquema=esquema_desde_modelo(EntradaBuscarFuentes),
     )

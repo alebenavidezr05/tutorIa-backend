@@ -8,6 +8,7 @@ from app.exceptions.base import (
     RespuestasIncompletasError,
     SesionYaEvaluadaError,
 )
+from app.fuentes.bloqueo import sin_bloqueadas
 from app.models.enums import NivelCognitivo, OpcionRespuesta
 from app.models.sesion_diagnostico import SesionDiagnostico
 from app.repositories.diagnostico import SesionDiagnosticoRepository
@@ -78,7 +79,11 @@ class EvaluacionService:
 
     def _resultado(self, sesion: SesionDiagnostico, aciertos: int) -> ResultadoDiagnostico:
         ids = [p.id_fuente for p in sesion.preguntas if p.id_fuente]
-        fuentes = {f.id_fuente: f for f in self._fuentes.listar_por_ids(ids)}
+        guardadas = self._fuentes.listar_por_ids(ids)
+        fuentes = {
+            f.id_fuente: f
+            for f in sin_bloqueadas(guardadas, self._settings.fuentes_dominios_bloqueados)
+        }
         assert sesion.nivel_estimado is not None and sesion.puntaje_diagnostico is not None
         return ResultadoDiagnostico(
             id_sesion=sesion.id_sesion,

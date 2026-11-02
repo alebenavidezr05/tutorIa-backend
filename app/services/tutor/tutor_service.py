@@ -285,12 +285,8 @@ class TutorService:
             id_usuario=conversacion.id_usuario,
             contexto_fuentes=ContextoFuentes(conversacion.nivel_cognitivo, estudiante.tipo_nivel),
         )
-        estado.fuentes.update(
-            {
-                f.id_fuente: f
-                for f in self._fuentes_repo.listar_por_conversacion(conversacion.id_conversacion)
-            }
-        )
+        guardadas = self._fuentes_repo.listar_por_conversacion(conversacion.id_conversacion)
+        estado.fuentes.update({f.id_fuente: f for f in self._fuentes.permitidas(guardadas)})
         contexto = self._contexto.construir(
             DatosContexto(
                 conversacion=conversacion,

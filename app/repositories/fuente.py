@@ -1,11 +1,12 @@
 import uuid
 from collections.abc import Collection
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.models.enums import CategoriaFuente
 from app.models.fuente import Fuente, MensajeFuente, PlanFuente
 from app.models.mensaje import Mensaje
+from app.models.pregunta_diagnostico import PreguntaDiagnostico
 from app.repositories.base import RepositorioBase
 
 
@@ -64,4 +65,26 @@ class FuenteRepository(RepositorioBase[Fuente]):
 
     def vincular_plan(self, id_plan: uuid.UUID, ids_fuentes: Collection[uuid.UUID]) -> None:
         self._session.add_all(PlanFuente(id_plan=id_plan, id_fuente=f) for f in ids_fuentes)
+        self._session.flush()
+
+    def listar_id_y_url(self) -> list[tuple[uuid.UUID, str]]:
+        filas = self._session.execute(select(Fuente.id_fuente, Fuente.url))
+        return [(id_fuente, url) for id_fuente, url in filas]
+
+    def ids_en_mensajes(self, ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+        consulta = select(MensajeFuente.id_fuente).where(MensajeFuente.id_fuente.in_(ids))
+        return set(self._session.scalars(consulta))
+
+    def ids_en_planes(self, ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+        consulta = select(PlanFuente.id_fuente).where(PlanFuente.id_fuente.in_(ids))
+        return set(self._session.scalars(consulta))
+
+    def ids_en_diagnosticos(self, ids: Collection[uuid.UUID]) -> set[uuid.UUID]:
+        consulta = select(PreguntaDiagnostico.id_fuente).where(
+            PreguntaDiagnostico.id_fuente.in_(ids)
+        )
+        return {i for i in self._session.scalars(consulta) if i is not None}
+
+    def eliminar_por_ids(self, ids: Collection[uuid.UUID]) -> None:
+        self._session.execute(delete(Fuente).where(Fuente.id_fuente.in_(ids)))
         self._session.flush()

@@ -21,7 +21,7 @@ from app.exceptions.base import (
     ImagenesNoDisponiblesError,
 )
 from app.fuentes.adaptadores.ckan import CkanFuentesClient
-from app.fuentes.adaptadores.mediawiki import MediaWikiFuentesClient
+from app.fuentes.adaptadores.medlineplus import MedlinePlusFuentesClient
 from app.fuentes.adaptadores.rest_json import OpenAlexFuentesClient
 from app.fuentes.registro import construir_fuentes
 from app.imagenes.adaptadores.commons import CommonsImagenesClient
@@ -29,6 +29,7 @@ from app.imagenes.adaptadores.iiif_museo import IiifMuseoImagenesClient
 from app.imagenes.descarga_segura import DescargadorSeguro
 from app.imagenes.licencias import licencia_permitida, normalizar_licencia
 from app.imagenes.procesador import ProcesadorPillow
+from app.imagenes.registro import construir_imagenes
 from app.videos.youtube_client import YouTubeClient, duracion_iso_a_segundos
 
 
@@ -94,28 +95,31 @@ class TestFuentes:
         )  # type: ignore[union-attr]
         assert preprint.autoridad == 2 and preprint.revisada_por_pares is False
 
-    def test_mediawiki_y_ckan(self) -> None:
-        wiki = {
-            "query": {
-                "pages": [
-                    {
-                        "index": 1,
-                        "title": "Fotosíntesis",
-                        "extract": "Proceso...",
-                        "fullurl": "https://es.wikipedia.org/wiki/F",
-                        "revisions": [{"timestamp": "2026-09-01T10:00:00Z"}],
-                    }
-                ]
-            }
-        }
-        fuentes = MediaWikiFuentesClient(
-            _config("mediawiki", "REFERENCIA", autoridad=1), _http(_json(wiki))
-        ).buscar("f", "es", 3)
-        assert (
-            fuentes[0].autoridad == 1
-            and fuentes[0].licencia == "CC BY-SA 4.0"
-            and str(fuentes[0].fecha_publicacion) == "2026-09-01"
+    def test_medlineplus_xml_y_ckan(self) -> None:
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?><nlmSearchResult><list num="2">'
+            '<document rank="0" url="https://medlineplus.gov/spanish/diabetes.html">'
+            '<content name="title">&lt;span class="qt0"&gt;Diabetes&lt;/span&gt;</content>'
+            '<content name="organizationName">Biblioteca Nacional de Medicina</content>'
+            '<content name="FullSummary">¿Qué es la &lt;span class="qt0"&gt;diabetes'
+            "&lt;/span&gt;?&lt;p&gt;Una enfermedad.</content></document>"
+            '<document rank="1" url="http://medlineplus.gov/sin-tls.html">'
+            '<content name="title">X</content><content name="snippet">Y</content></document>'
+            "</list></nlmSearchResult>"
         )
+        peticiones: list[httpx.Request] = []
+
+        def manejador(peticion: httpx.Request) -> httpx.Response:
+            peticiones.append(peticion)
+            return httpx.Response(200, content=xml.encode())
+
+        fuentes = MedlinePlusFuentesClient(
+            _config("medlineplus", "INSTITUCIONAL_OFICIAL"), _http(manejador)
+        ).buscar("diabetes", "es", 3)
+        assert peticiones[0].url.params["db"] == "healthTopicsSpanish"
+        assert len(fuentes) == 1 and fuentes[0].titulo == "Diabetes"
+        assert fuentes[0].autoridad == 4 and fuentes[0].licencia == "Dominio público"
+        assert "<" not in fuentes[0].extracto and "Una enfermedad" in fuentes[0].extracto
         ckan = {
             "result": {
                 "results": [
@@ -139,9 +143,17 @@ class TestFuentes:
         ).buscar("x", "es", 3)
         assert institucional[0].autoridad == 4 and institucional[0].url.endswith("datos-1")
 
-    def test_errores_de_red_se_traducen(self) -> None:
-        cliente = MediaWikiFuentesClient(
-            _config("mediawiki", "REFERENCIA"), _http(lambda _: httpx.Response(503))
+    @pytest.mark.parametrize(
+        "respuesta",
+        [
+            httpx.Response(503),
+            httpx.Response(200, content=b"<no-cierra>"),
+            httpx.Response(200, content=b'<!DOCTYPE x [<!ENTITY a "b">]><x>&a;</x>'),
+        ],
+    )
+    def test_errores_de_red_y_xml_se_traducen(self, respuesta: httpx.Response) -> None:
+        cliente = MedlinePlusFuentesClient(
+            _config("medlineplus", "INSTITUCIONAL_OFICIAL"), _http(lambda _: respuesta)
         )
         with pytest.raises(FuentesNoDisponiblesError):
             cliente.buscar("x", "es", 3)
@@ -149,8 +161,8 @@ class TestFuentes:
     def test_registro_por_configuracion(self, settings: Settings) -> None:
         configs = [
             _config("openalex", "ACADEMICA_ABIERTA"),
-            _config("mediawiki", "REFERENCIA", activo=False),
-            _config("mediawiki", "WEB_GENERAL"),
+            _config("medlineplus", "INSTITUCIONAL_OFICIAL", activo=False),
+            _config("medlineplus", "WEB_GENERAL"),
         ]
         clientes = construir_fuentes(settings.model_copy(update={"fuentes_proveedores": configs}))
         assert [c.proveedor for c in clientes] == ["p-openalex"]
@@ -160,6 +172,58 @@ class TestFuentes:
                     update={"fuentes_proveedores": [_config("oai_pmh", "ACADEMICA_ABIERTA")]}
                 )
             )
+
+    @pytest.mark.parametrize(
+        "proveedor",
+        [
+            ConfigProveedor(
+                id="enciclopedia",
+                categoria="REFERENCIA",
+                adaptador="ckan",
+                base_url="https://es.wikipedia.org/w/api.php",
+            ),
+            # Inactivo y por la lista de dominios: tampoco se admite.
+            ConfigProveedor(
+                id="libros",
+                categoria="EDUCATIVA_ABIERTA",
+                adaptador="ckan",
+                activo=False,
+                base_url="https://api.example.org/x",
+                dominios=["es.wikibooks.org"],
+            ),
+        ],
+    )
+    def test_proveedor_de_texto_bloqueado_impide_arrancar(
+        self, settings: Settings, proveedor: ConfigProveedor
+    ) -> None:
+        configurado = settings.model_copy(update={"fuentes_proveedores": [proveedor]})
+        with pytest.raises(ValueError, match="dominios bloqueados"):
+            construir_fuentes(configurado)
+
+    def test_bloqueo_ampliado_por_configuracion(self, settings: Settings) -> None:
+        configurado = settings.model_copy(
+            update={
+                "fuentes_proveedores": [_config("openalex", "ACADEMICA_ABIERTA")],
+                "fuentes_dominios_bloqueados": ["example.org"],
+            }
+        )
+        with pytest.raises(ValueError, match="p-openalex"):
+            construir_fuentes(configurado)
+
+    def test_commons_sigue_arrancando_para_imagenes(self, settings: Settings) -> None:
+        commons = ConfigProveedor(
+            id="wikimedia_commons",
+            categoria="REPOSITORIO_COLABORATIVO",
+            adaptador="mediawiki_commons",
+            base_url="https://commons.wikimedia.org/w/api.php",
+            dominios=["upload.wikimedia.org"],
+        )
+        imagenes = construir_imagenes(
+            settings.model_copy(update={"imagenes_proveedores": [commons]})
+        )
+        assert [i.proveedor for i in imagenes] == ["wikimedia_commons"]
+        for cliente in imagenes:
+            cliente.cerrar()
 
 
 class TestImagenes:
@@ -284,9 +348,20 @@ class TestDescargaSegura:
         [
             ("http://upload.wikimedia.org/a.jpg", "93.184.216.34"),
             ("https://malicioso.example/a.jpg", "93.184.216.34"),
-            (URL, "10.0.0.5"),
-            (URL, "169.254.169.254"),
+            ("https://localhost/a.jpg", "127.0.0.1"),
+            ("https://169.254.169.254/latest/meta-data/", "169.254.169.254"),
+            (URL, "169.254.169.254"),  # metadatos de la instancia EC2
+            (URL, "169.254.10.10"),  # 169.254.0.0/16
             (URL, "127.0.0.1"),
+            (URL, "127.8.9.10"),  # 127.0.0.0/8
+            (URL, "10.0.0.5"),  # 10.0.0.0/8
+            (URL, "172.16.0.1"),  # 172.16.0.0/12
+            (URL, "172.31.255.254"),
+            (URL, "192.168.1.10"),  # 192.168.0.0/16
+            (URL, "::1"),
+            (URL, "fd12:3456::1"),  # fc00::/7
+            (URL, "fe80::1"),  # fe80::/10
+            (URL, "::ffff:169.254.169.254"),  # IPv4 mapeada en IPv6
         ],
     )
     def test_rechaza_destinos_peligrosos(self, settings: Settings, url: str, ip: str) -> None:
@@ -294,6 +369,30 @@ class TestDescargaSegura:
             _descargador(
                 settings, lambda _: httpx.Response(200, content=_jpeg_con_exif()), ip
             ).descargar(url, DOMINIOS)
+
+    @pytest.mark.parametrize(
+        "ip_privada", ["169.254.169.254", "127.0.0.1", "10.1.1.1", "192.168.0.1", "::1"]
+    )
+    def test_redireccion_que_resuelve_a_ip_privada(
+        self, settings: Settings, ip_privada: str
+    ) -> None:
+        """La resolución se repite en cada salto: un dominio permitido que apunta a una IP
+        interna tras una redirección también se rechaza."""
+        dominios = ["upload.wikimedia.org", "interno.wikimedia.org"]
+        ips = {"upload.wikimedia.org": "93.184.216.34", "interno.wikimedia.org": ip_privada}
+        cliente = httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(
+                    302, headers={"location": "https://interno.wikimedia.org/a.jpg"}
+                )
+            ),
+            follow_redirects=False,
+        )
+        descargador = DescargadorSeguro(
+            settings, ProcesadorPillow(), cliente=cliente, resolver=lambda h: [ips[h]]
+        )
+        with pytest.raises(ImagenesNoDisponiblesError, match="no pública"):
+            descargador.descargar(URL, dominios)
 
     def test_rechaza_redireccion_fuera_de_dominio_tamano_y_tipo(self, settings: Settings) -> None:
         redireccion = _descargador(

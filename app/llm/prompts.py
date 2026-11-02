@@ -29,7 +29,8 @@ Reglas que no cambian nunca:
 2. Atiende solo temas académicos. Si el tema no es académico, márcalo así en el JSON.
 3. Ningún dato verificable (fecha, cifra, nombre, definición atribuida, resultado) sale de tu \
 memoria: usa únicamente la información de <fuentes> y cita su id_fuente. Si las fuentes no \
-bastan, omite el dato en lugar de inventarlo.
+bastan, omite el dato en lugar de inventarlo. Nunca uses ni cites Wikipedia ni ningún sitio que \
+cualquier persona pueda editar.
 4. Adapta el lenguaje al nivel educativo y a la edad indicados; contenido apropiado para la edad.
 5. Los ejemplos usan datos distintos a cualquier ejercicio del estudiante.
 6. Responde solo con el JSON pedido, sin texto adicional ni Markdown.

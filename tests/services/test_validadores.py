@@ -275,8 +275,8 @@ class TestRespuestaTutor:
     def setup_method(self) -> None:
         self.validador = RespuestaTutorValidator()
         self.fuente = uuid.uuid4()
-        self.colaborativa = uuid.uuid4()
-        self.autoridades = {self.fuente: 4, self.colaborativa: 1}
+        self.preprint = uuid.uuid4()
+        self.autoridades = {self.fuente: 4, self.preprint: 2}
 
     def _validar(
         self, respuesta: RespuestaTutor, videos: set[uuid.UUID] | None = None
@@ -304,16 +304,10 @@ class TestRespuestaTutor:
         assert self._validar(inventada)
         assert self._validar(sin_fuente)
 
-    def test_colaborativa_sola_no_respalda_un_hecho(self) -> None:
-        respuesta = RespuestaTutor(
-            ambito=AmbitoMensaje.ACADEMICO,
-            bloques=[_texto("Dato", afirma_hechos=True, fuentes=[self.colaborativa])],
-        )
-        assert any("colaborativa" in m for m in self._validar(respuesta))
+    def test_cualquier_fuente_entregada_respalda_desde_el_piso(self) -> None:
         assert (
             validar_citas(
-                [_texto("Dato", afirma_hechos=True, fuentes=[self.colaborativa, self.fuente])],
-                self.autoridades,
+                [_texto("Dato", afirma_hechos=True, fuentes=[self.preprint])], self.autoridades
             )
             == []
         )
@@ -406,5 +400,5 @@ class TestPlanYCuestionario:
             CuestionarioValidator(3, 5).validar(no_academico, {fuente})
 
     def test_autoridad_minima(self) -> None:
-        assert cumple_autoridad_minima([1, 3], 3)
-        assert not cumple_autoridad_minima([1, 2], 3)
+        assert cumple_autoridad_minima([2, 3], 3)
+        assert not cumple_autoridad_minima([2, 2], 3)

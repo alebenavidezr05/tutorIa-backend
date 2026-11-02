@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from xml.etree import ElementTree
 
 import httpx
 
@@ -21,5 +22,24 @@ def obtener_json(
         respuesta.raise_for_status()
         return respuesta.json()
     except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("fuentes_error proveedor=%s tipo=%s", proveedor, type(exc).__name__)
+        raise FuentesNoDisponiblesError() from exc
+
+
+# Sin DTD no hay expansión de entidades (XXE ni "billion laughs"): se rechaza antes de parsear.
+MARCAS_DTD = (b"<!DOCTYPE", b"<!ENTITY")
+
+
+def obtener_xml(
+    cliente: httpx.Client, url: str, parametros: dict[str, Any], proveedor: str
+) -> ElementTree.Element:
+    """Igual que `obtener_json`, para APIs que solo responden XML."""
+    try:
+        respuesta = cliente.get(url, params=parametros)
+        respuesta.raise_for_status()
+        if any(marca in respuesta.content for marca in MARCAS_DTD):
+            raise ValueError("XML con DTD no permitido")
+        return ElementTree.fromstring(respuesta.content)
+    except (httpx.HTTPError, ValueError, ElementTree.ParseError) as exc:
         logger.warning("fuentes_error proveedor=%s tipo=%s", proveedor, type(exc).__name__)
         raise FuentesNoDisponiblesError() from exc

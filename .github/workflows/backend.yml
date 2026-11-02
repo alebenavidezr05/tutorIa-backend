@@ -1,0 +1,80 @@
+name: backend
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+# Todos los proveedores en fake: ninguna prueba necesita llaves ni red externa.
+env:
+  APP_ENV: test
+  LLM_PROVIDER: fake
+  MODERACION_PROVEEDOR: fake
+  CORREO_PROVEEDOR: fake
+  CIFRADO_PROVEEDOR: local
+  ALMACEN_PROVEEDOR: local
+
+jobs:
+  calidad:
+    name: Lint, tipos y pruebas sin BD (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy app
+      - run: pytest -m "not db"
+
+  postgres:
+    name: Pruebas con PostgreSQL y cobertura
+    runs-on: ubuntu-latest
+    # Los contenedores de servicio solo existen en runners Linux.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tutoria
+          POSTGRES_PASSWORD: tutoria
+          POSTGRES_DB: tutoria_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tutoria -d tutoria_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://tutoria:tutoria@localhost:5432/tutoria_test
+      DB_SSLMODE: disable
+      # Umbral de cobertura (prompt 01 §20). Ajústalo si el prompt del backend fija otro.
+      COBERTURA_MINIMA: "80"
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements-dev.txt
+      # Suite completa (incluye las marcadas `db`) contra PostgreSQL real.
+      - run: pytest --cov=app/services --cov=app/validators --cov-report=term-missing --cov-fail-under="$COBERTURA_MINIMA"

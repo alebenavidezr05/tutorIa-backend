@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -9,7 +10,8 @@ from app.core.config import Settings
 from app.core.tiempo import ahora_utc
 from app.crypto.indice_ciego import sha256_hex
 from app.exceptions.base import TemaSinFuentesError
-from app.fuentes.base import FuenteCandidata, FuentesClient
+from app.fuentes.base import AUTORIDAD_PISO, FuenteCandidata, FuentesClient
+from app.fuentes.bloqueo import es_dominio_bloqueado, sin_bloqueadas
 from app.llm.prompts import FuenteContexto
 from app.models.enums import CategoriaFuente, NivelCognitivo, TipoFuente, TipoNivel
 from app.models.fuente import Fuente
@@ -19,6 +21,8 @@ from app.services.concurrencia import consultar_en_paralelo
 from app.services.presentacion import fuente_publica
 from app.validators.fuentes import cumple_autoridad_minima
 from app.validators.texto import limpiar_texto_externo, normalizar_para_comparar
+
+logger = logging.getLogger(__name__)
 
 LONGITUD_MIN_TERMINO = 4
 MAX_TITULO = 300
@@ -62,13 +66,13 @@ class FuentesService:
 
     def recopilar(self, consulta: str, contexto: ContextoFuentes) -> list[Fuente]:
         categorias = self._categorias(contexto)
-        candidatas = [c for c in self._consultar(consulta, categorias) if self._es_aceptable(c)]
+        candidatas = self._aceptables(self._consultar(consulta, categorias))
         minimo = self.autoridad_minima(contexto.nivel)
-        if not cumple_autoridad_minima((c.autoridad for c in candidatas), minimo):
+        if not cumple_autoridad_minima(self._autoridades_que_respaldan(candidatas), minimo):
             # Respaldo: si las categorías escolares no alcanzan la autoridad mínima, se suman las
             # académicas abiertas para no dejar sin fuentes verificables al estudiante.
             respaldo = self._consultar(consulta, {CategoriaFuente.ACADEMICA_ABIERTA} - categorias)
-            candidatas += [c for c in respaldo if self._es_aceptable(c)]
+            candidatas += self._aceptables(respaldo)
         unicas = self._deduplicar(candidatas)
         elegidas = self._seleccionar(self._ordenar(unicas, consulta), contexto)
         return [*self._curadas(consulta), *self._materializar(elegidas)][
@@ -79,7 +83,7 @@ class FuentesService:
         fuentes = self.recopilar(consulta, contexto)
         minimo = self.autoridad_minima(contexto.nivel)
         if self._settings.fuentes_obligatorias and not cumple_autoridad_minima(
-            (f.autoridad for f in fuentes), minimo
+            self._autoridades_que_respaldan(fuentes), minimo
         ):
             raise TemaSinFuentesError()
         return fuentes
@@ -122,17 +126,25 @@ class FuentesService:
         minimo: int = getattr(self._settings, f"autoridad_minima_{nivel.value.lower()}")
         return minimo
 
-    @staticmethod
-    def autoridades(fuentes: Iterable[Fuente]) -> dict[uuid.UUID, int]:
-        return {f.id_fuente: f.autoridad for f in fuentes}
+    def permitidas(self, fuentes: Iterable[Fuente]) -> list[Fuente]:
+        """Filtro de lectura: una fila guardada antes de la lista de bloqueo (o bajo el piso de
+        autoridad) nunca llega al modelo, a las citas ni a las referencias."""
+        return [
+            f
+            for f in sin_bloqueadas(fuentes, self._settings.fuentes_dominios_bloqueados)
+            if f.autoridad >= AUTORIDAD_PISO
+        ]
 
-    @staticmethod
-    def a_contexto(fuentes: Iterable[Fuente]) -> list[FuenteContexto]:
+    def autoridades(self, fuentes: Iterable[Fuente]) -> dict[uuid.UUID, int]:
+        """Solo las fuentes permitidas: citar una bloqueada equivale a citar una inventada."""
+        return {f.id_fuente: f.autoridad for f in self.permitidas(fuentes)}
+
+    def a_contexto(self, fuentes: Iterable[Fuente]) -> list[FuenteContexto]:
         return [
             FuenteContexto(
                 f.id_fuente, f.titulo, f.sitio, f.categoria.value, f.autoridad, f.extracto or ""
             )
-            for f in fuentes
+            for f in self.permitidas(fuentes)
         ]
 
     @staticmethod
@@ -156,6 +168,27 @@ class FuentesService:
             if cliente.categoria in categorias
         ]
         return consultar_en_paralelo(tareas, self._settings.fuentes_timeout_segundos)
+
+    def _autoridades_que_respaldan(self, fuentes: Iterable[FuenteCandidata | Fuente]) -> list[int]:
+        """La prensa aporta contexto, pero no cumple sola la autoridad mínima del nivel salvo que
+        PRENSA_RESPALDA_SOLA lo permita (temas de actualidad)."""
+        return [
+            f.autoridad
+            for f in fuentes
+            if f.categoria != CategoriaFuente.PRENSA_CONFIABLE
+            or self._settings.prensa_respalda_sola
+        ]
+
+    def _aceptables(self, candidatas: list[FuenteCandidata]) -> list[FuenteCandidata]:
+        """Primero el bloqueo y el piso de autoridad, antes de deduplicar, ordenar o guardar."""
+        aceptables = []
+        for c in candidatas:
+            if es_dominio_bloqueado(c.url, self._settings.fuentes_dominios_bloqueados):
+                # Defecto del adaptador: se avisa sin URL ni datos del estudiante.
+                logger.warning("fuente_bloqueada_descartada proveedor=%s", c.proveedor)
+            elif c.autoridad >= AUTORIDAD_PISO and self._es_aceptable(c):
+                aceptables.append(c)
+        return aceptables
 
     def _es_aceptable(self, candidata: FuenteCandidata) -> bool:
         partes = urlsplit(candidata.url)
@@ -218,11 +251,14 @@ class FuentesService:
         return elegidas[: self._settings.fuentes_max_por_turno]
 
     def _curadas(self, consulta: str) -> list[Fuente]:
-        return self._fuentes.buscar_curadas(consulta, self._settings.fuentes_max_por_turno)
+        return self.permitidas(
+            self._fuentes.buscar_curadas(consulta, self._settings.fuentes_max_por_turno)
+        )
 
     def _materializar(self, candidatas: list[FuenteCandidata]) -> list[Fuente]:
         hashes = {sha256_hex(c.url): c for c in candidatas}
-        existentes = {f.url_hash: f for f in self._fuentes.listar_por_url_hashes(list(hashes))}
+        guardadas = self.permitidas(self._fuentes.listar_por_url_hashes(list(hashes)))
+        existentes = {f.url_hash: f for f in guardadas}
         pendientes = {f.url_hash: f for f in self._pendientes.values()}
         return [
             self._reutilizar(existentes.get(h), c) or pendientes.get(h) or self._nueva(h, c)

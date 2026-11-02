@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.core.tiempo import ahora_utc
 from app.core.unit_of_work import UnitOfWork
 from app.exceptions.base import DatoInvalidoError, FuncionPremiumError, RecursoNoEncontradoError
+from app.fuentes.bloqueo import sin_bloqueadas
 from app.models.conversacion import Conversacion
 from app.models.enums import Capacidad, EstadoConversacion, NivelCognitivo, RolMensaje
 from app.models.mensaje import Mensaje
@@ -187,7 +188,13 @@ class ConversacionService:
                 bloques=self._videos.hidratar(m.bloques or [])
                 if m.rol == RolMensaje.TUTOR
                 else None,
-                fuentes=[fuente_publica(f) for f in self._fuentes.listar_por_mensaje(m.id_mensaje)],
+                fuentes=[
+                    fuente_publica(f)
+                    for f in sin_bloqueadas(
+                        self._fuentes.listar_por_mensaje(m.id_mensaje),
+                        self._settings.fuentes_dominios_bloqueados,
+                    )
+                ],
                 visual=self._trabajos.vista_opcional(trabajos.get(m.id_mensaje)),
                 archivo=archivo_publico(archivos[m.id_mensaje])
                 if m.id_mensaje in archivos

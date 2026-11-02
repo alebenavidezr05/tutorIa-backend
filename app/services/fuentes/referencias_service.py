@@ -1,7 +1,8 @@
 import uuid
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 
 from app.exceptions.base import RecursoNoEncontradoError
+from app.fuentes.bloqueo import sin_bloqueadas
 from app.models.conversacion import Conversacion
 from app.models.enums import RolMensaje, TipoRecursoVisual
 from app.models.fuente import Fuente
@@ -31,6 +32,7 @@ class ReferenciasService:
         trabajos: TrabajoVisualRepository,
         recursos: RecursoVisualRepository,
         videos: VideoCuradoRepository,
+        dominios_bloqueados: Collection[str] = (),
     ) -> None:
         self._conversaciones = conversaciones
         self._mensajes = mensajes
@@ -38,6 +40,7 @@ class ReferenciasService:
         self._trabajos = trabajos
         self._recursos = recursos
         self._videos = videos
+        self._dominios_bloqueados = dominios_bloqueados
 
     def de_conversacion(
         self, id_usuario: uuid.UUID, id_conversacion: uuid.UUID
@@ -62,7 +65,8 @@ class ReferenciasService:
         fuentes = self._fuentes.listar_por_conversacion(conversacion.id_conversacion)
         if conversacion.id_plan:
             fuentes += self._fuentes.listar_por_plan(conversacion.id_plan)
-        return fuentes
+        # Una fuente de dominio bloqueado jamás aparece en las referencias, aunque esté guardada.
+        return sin_bloqueadas(fuentes, self._dominios_bloqueados)
 
     def _recursos_de(self, conversacion: Conversacion) -> list[RecursoVisual]:
         ids_mensajes = [

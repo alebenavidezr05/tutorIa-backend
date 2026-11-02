@@ -3,7 +3,7 @@ from datetime import date
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LONGITUD_MINIMA_SECRETO = 32
@@ -13,6 +13,10 @@ CLAVE_INDICE_CIEGO_DESARROLLO = "solo-desarrollo-cambiar-clave-indice-ciego-0000
 CLAVE_LOCAL_DESARROLLO = "ZGVzYXJyb2xsby1zb2xvLWNsYXZlLWFlcy0zMmJ5dGU="
 PROVEEDORES_FALSOS = {"fake", "local"}
 PATRON_URL_CON_COMODIN = re.compile(r"\*")
+# Dominio de cookie: etiquetas DNS con al menos un punto; se admite el punto inicial (.tutoria.co).
+PATRON_DOMINIO_COOKIE = re.compile(
+    r"^\.?(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$"
+)
 
 
 class ConfigProveedor(BaseModel):
@@ -27,7 +31,7 @@ class ConfigProveedor(BaseModel):
     requiere_llave: bool = False
     llave: SecretStr | None = None
     dominios: list[str] = Field(default_factory=list)
-    autoridad: int | None = Field(default=None, ge=1, le=4)
+    autoridad: int | None = Field(default=None, ge=2, le=4)
     parametros: dict[str, str] = Field(default_factory=dict)
 
 
@@ -77,7 +81,8 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr = SecretStr(SECRETO_JWT_DESARROLLO)
     jwt_expira_minutos: int = 1440
     cookie_nombre: str = "tutoria_sesion"
-    cookie_domain: str | None = None
+    # Vacío = cookie de un solo host (frontend y API comparten origen tras el proxy).
+    cookie_domain: str = ""
     cookie_secure: bool = False
     bcrypt_rounds: int = 12
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:4200"])
@@ -181,6 +186,10 @@ class Settings(BaseSettings):
     fuentes_max_por_turno: int = 5
     fuentes_cache_dias: int = 30
     fuentes_dominios_permitidos: list[str] = Field(default_factory=list)
+    # Suma a la lista base de fuentes/bloqueo.py; nunca la reduce.
+    fuentes_dominios_bloqueados: list[str] = Field(default_factory=list)
+    # La prensa no cumple sola la autoridad mínima, salvo que se active para temas de actualidad.
+    prensa_respalda_sola: bool = False
     fuentes_proveedores: list[ConfigProveedor] = Field(default_factory=_proveedores_fuentes_falsos)
     fuentes_timeout_segundos: float = 8
     fuentes_idiomas: list[str] = Field(default_factory=lambda: ["es", "en"])
@@ -287,6 +296,14 @@ class Settings(BaseSettings):
     @property
     def es_postgres(self) -> bool:
         return self.database_url.startswith("postgresql")
+
+    @field_validator("cookie_domain", mode="before")
+    @classmethod
+    def _validar_cookie_domain(cls, valor: object) -> str:
+        dominio = str(valor or "").strip().lower()
+        if dominio and not PATRON_DOMINIO_COOKIE.match(dominio):
+            raise ValueError("COOKIE_DOMAIN debe estar vacío o ser un dominio válido")
+        return dominio
 
     @model_validator(mode="after")
     def _validar_configuracion(self) -> Self:

@@ -216,6 +216,9 @@ class PlanService:
             actividades=[
                 actividad_publica(a, archivos.get(a.id_actividad)) for a in plan.actividades
             ],
-            fuentes=[fuente_publica(f) for f in self._fuentes_repo.listar_por_plan(plan.id_plan)],
+            fuentes=[
+                fuente_publica(f)
+                for f in self._fuentes.permitidas(self._fuentes_repo.listar_por_plan(plan.id_plan))
+            ],
             acepta_archivos=politica_de(plan.nivel_bloom).permite_archivos,
         )

@@ -17,7 +17,7 @@ class KmsCifrador:
 
     def __init__(self, settings: Settings, cliente_kms: Any | None = None) -> None:
         self._settings = settings
-        self._kms = cliente_kms or boto3.client("kms", region_name=settings.kms_region)
+        self._kms = cliente_kms or boto3.client("kms", region_name=settings.kms_region or None)
 
     def construir(self) -> CifradorAesGcm:
         if self._settings.cifrado_dek_envuelta is None:

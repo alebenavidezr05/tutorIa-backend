@@ -200,7 +200,7 @@ class TestFuentesService:
         proveedores: list[FuentesClient] = [
             _Proveedor(
                 CategoriaFuente.REFERENCIA,
-                [_candidata("enciclopedia", 1, CategoriaFuente.REFERENCIA)],
+                [_candidata("enciclopedia", 3, CategoriaFuente.REFERENCIA)],
             ),
             _Proveedor(
                 CategoriaFuente.ACADEMICA_ABIERTA,
@@ -209,7 +209,7 @@ class TestFuentesService:
             _Proveedor(CategoriaFuente.INSTITUCIONAL_OFICIAL, falla=True),
         ]
         fuentes = self._servicio(settings, proveedores).recopilar("articulo", self.contexto)
-        assert [f.autoridad for f in fuentes] == [4, 1]
+        assert [f.autoridad for f in fuentes] == [4, 3]
 
     def test_deduplica_por_doi_url_y_titulo(self, settings: Settings) -> None:
         url = "https://x.org/mismo"
@@ -228,13 +228,14 @@ class TestFuentesService:
         assert sorted(f.titulo for f in fuentes) == ["A", "C"]
 
     def test_autoridad_minima_por_nivel(self, settings: Settings) -> None:
-        solo_colaborativa = [
+        solo_preprint = [
             _Proveedor(
-                CategoriaFuente.REFERENCIA, [_candidata("wiki", 1, CategoriaFuente.REFERENCIA)]
+                CategoriaFuente.ACADEMICA_ABIERTA,
+                [_candidata("preprint", 2, CategoriaFuente.ACADEMICA_ABIERTA)],
             )
         ]
         with pytest.raises(TemaSinFuentesError):
-            self._servicio(settings, solo_colaborativa).recopilar_suficientes("wiki", self.contexto)
+            self._servicio(settings, solo_preprint).recopilar_suficientes("preprint", self.contexto)
 
     def test_categorias_escolares(self, settings: Settings) -> None:
         academica = FakeFuentesClient("a", CategoriaFuente.ACADEMICA_ABIERTA)
@@ -246,9 +247,9 @@ class TestFuentesService:
 
     def test_respaldo_academico_si_lo_escolar_no_alcanza(self, settings: Settings) -> None:
         academica = FakeFuentesClient("a", CategoriaFuente.ACADEMICA_ABIERTA)
-        colaborativa = FakeFuentesClient("w", CategoriaFuente.REFERENCIA)
-        fuentes = self._servicio(settings, [academica, colaborativa]).recopilar_suficientes(
-            "plantas", ContextoFuentes(NivelCognitivo.BASICO, TipoNivel.COLEGIO)
+        escolar = FakeFuentesClient("w", CategoriaFuente.REFERENCIA, autoridad=2)
+        fuentes = self._servicio(settings, [academica, escolar]).recopilar_suficientes(
+            "plantas", ContextoFuentes(NivelCognitivo.INTERMEDIO, TipoNivel.COLEGIO)
         )
         assert {f.categoria for f in fuentes} == {
             CategoriaFuente.ACADEMICA_ABIERTA,
@@ -270,7 +271,7 @@ class TestApaYCostos:
         )
         assert con_autor == "Pérez, A. (2020). Título. Revista. https://doi.org/10.1/abc"
         sin_autor = formato_apa.referencia_texto(
-            "Fotosíntesis", None, None, "Wikipedia", "https://w.org/f", None, consulta
+            "Fotosíntesis", None, None, "Sitio institucional", "https://w.org/f", None, consulta
         )
         assert (
             sin_autor.startswith("Fotosíntesis. (s. f.).")

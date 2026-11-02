@@ -5,9 +5,10 @@ import httpx
 from app.core.config import ConfigProveedor, Settings
 from app.fuentes.adaptadores.ckan import CkanFuentesClient
 from app.fuentes.adaptadores.http import crear_cliente_http
-from app.fuentes.adaptadores.mediawiki import MediaWikiFuentesClient
+from app.fuentes.adaptadores.medlineplus import MedlinePlusFuentesClient
 from app.fuentes.adaptadores.rest_json import OpenAlexFuentesClient
 from app.fuentes.base import FuentesClient
+from app.fuentes.bloqueo import es_dominio_bloqueado
 from app.fuentes.fake_client import FakeFuentesClient
 from app.models.enums import CategoriaFuente
 
@@ -15,11 +16,30 @@ ConstructorFuentes = Callable[[ConfigProveedor, httpx.Client], FuentesClient]
 
 # Agregar un proveedor = una clase de adaptador + una línea aquí + su entrada en FUENTES_PROVEEDORES.
 ADAPTADORES: dict[str, ConstructorFuentes] = {
-    "mediawiki": MediaWikiFuentesClient,
     "openalex": OpenAlexFuentesClient,
     "ckan": CkanFuentesClient,
+    "medlineplus": MedlinePlusFuentesClient,
 }
 ADAPTADOR_FALSO = "fake"
+
+
+def validar_proveedores_texto(settings: Settings) -> None:
+    """Ningún proveedor de texto (activo o no) puede apuntar a un dominio editable por cualquiera.
+    Se comprueba al arrancar, en todos los entornos. Las imágenes tienen su propio registro."""
+    bloqueados = settings.fuentes_dominios_bloqueados
+    invalidos = sorted(
+        {
+            c.id
+            for c in settings.fuentes_proveedores
+            for destino in (c.base_url, *c.dominios)
+            if destino and es_dominio_bloqueado(destino, bloqueados)
+        }
+    )
+    if invalidos:
+        raise ValueError(
+            "FUENTES_PROVEEDORES incluye dominios bloqueados (fuentes editables por cualquiera, "
+            f"ver docs/fuentes.md): {', '.join(invalidos)}"
+        )
 
 
 def _construir(config: ConfigProveedor, settings: Settings) -> FuentesClient:
@@ -32,6 +52,7 @@ def _construir(config: ConfigProveedor, settings: Settings) -> FuentesClient:
 
 
 def construir_fuentes(settings: Settings) -> list[FuentesClient]:
+    validar_proveedores_texto(settings)
     activos = [c for c in settings.fuentes_proveedores if c.activo]
     if not settings.fuentes_web_search_activa:
         activos = [c for c in activos if c.categoria != CategoriaFuente.WEB_GENERAL]

@@ -1,6 +1,6 @@
 import re
 import uuid
-from collections.abc import Iterator, Mapping, Set
+from collections.abc import Collection, Iterator, Mapping, Set
 
 from app.models.enums import AmbitoMensaje
 from app.schemas.bloques import (
@@ -14,7 +14,11 @@ from app.schemas.bloques import (
 )
 from app.validators.diagrama import validar_diagrama
 from app.validators.entrega_directa import contiene_entrega_directa
-from app.validators.fuentes import validar_citas
+from app.validators.fuentes import (
+    atribuye_a_fuente_bloqueada,
+    contiene_url_bloqueada,
+    validar_citas,
+)
 from app.validators.resultado import ResultadoValidacion
 from app.validators.texto import (
     contiene_html,
@@ -48,6 +52,20 @@ def _motivos_formato(bloques: list[BloqueTutor]) -> list[str]:
     return motivos
 
 
+def _motivos_fuentes_bloqueadas(
+    bloques: list[BloqueTutor], dominios_bloqueados: Collection[str]
+) -> list[str]:
+    textos = [t for b in bloques for t in _textos(b)]
+    motivos = []
+    if any(contiene_url_bloqueada(t, dominios_bloqueados) for t in textos):
+        motivos.append("menciona un sitio que cualquiera puede editar; no es una fuente válida")
+    if any(atribuye_a_fuente_bloqueada(t) for t in textos):
+        motivos.append(
+            "atribuye un dato a Wikipedia; solo puedes apoyarte en las fuentes entregadas"
+        )
+    return motivos
+
+
 def _motivos_ejemplos(bloques: list[BloqueTutor]) -> list[str]:
     sin_rotulo = [
         b
@@ -71,7 +89,11 @@ def _motivos_visual(solicitud: SolicitudVisual | None) -> list[str]:
 
 
 class RespuestaTutorValidator:
-    """Capa 3 del chat: estructura, formato, citas, videos, recurso visual y entrega directa."""
+    """Capa 3 del chat: estructura, formato, citas, fuentes bloqueadas, videos, recurso visual y
+    entrega directa."""
+
+    def __init__(self, dominios_bloqueados: Collection[str] = ()) -> None:
+        self._dominios_bloqueados = dominios_bloqueados
 
     def validar(
         self,
@@ -84,6 +106,7 @@ class RespuestaTutorValidator:
         bloques = respuesta.bloques
         motivos = [] if 1 <= len(bloques) <= MAX_BLOQUES else ["debe tener entre 1 y 8 bloques"]
         motivos += _motivos_formato(bloques) + _motivos_ejemplos(bloques)
+        motivos += _motivos_fuentes_bloqueadas(bloques, self._dominios_bloqueados)
         motivos += validar_citas(bloques, autoridades_fuentes)
         motivos += _motivos_videos(bloques, ids_videos) + _motivos_visual(
             respuesta.solicitud_visual

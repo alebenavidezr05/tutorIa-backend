@@ -18,7 +18,7 @@ CODIFICACION = "UTF-8"
 class SesCorreoClient(CorreoClient):
     def __init__(self, settings: Settings, cliente: Any | None = None) -> None:
         self._remitente = settings.correo_remitente
-        self._ses = cliente or boto3.client("sesv2", region_name=settings.ses_region)
+        self._ses = cliente or boto3.client("sesv2", region_name=settings.ses_region or None)
 
     def enviar(self, correo: Correo) -> None:
         contenido = {

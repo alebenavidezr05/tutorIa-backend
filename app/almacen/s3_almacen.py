@@ -19,7 +19,7 @@ class S3Almacen(Almacen):
     def __init__(self, settings: Settings, cliente: Any | None = None) -> None:
         self._bucket = settings.s3_bucket
         self._kms_key_id = settings.kms_key_id
-        self._s3 = cliente or boto3.client("s3", region_name=settings.s3_region)
+        self._s3 = cliente or boto3.client("s3", region_name=settings.s3_region or None)
 
     def guardar(self, clave: str, contenido: bytes, mime: str) -> None:
         parametros: dict[str, Any] = {

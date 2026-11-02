@@ -20,7 +20,7 @@ class CookieSesion:
             value=token,
             max_age=self._settings.jwt_expira_minutos * SEGUNDOS_POR_MINUTO,
             path="/",
-            domain=self._settings.cookie_domain,
+            domain=self._settings.cookie_domain or None,
             secure=self._settings.cookie_secure or self._settings.es_produccion,
             httponly=True,
             samesite=SAME_SITE,
@@ -30,7 +30,7 @@ class CookieSesion:
         response.delete_cookie(
             key=self._settings.cookie_nombre,
             path="/",
-            domain=self._settings.cookie_domain,
+            domain=self._settings.cookie_domain or None,
             secure=self._settings.cookie_secure or self._settings.es_produccion,
             httponly=True,
             samesite=SAME_SITE,

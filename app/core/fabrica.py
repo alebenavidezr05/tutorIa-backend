@@ -281,6 +281,7 @@ class FabricaServicios:
             self.trabajos_repo,
             self.recursos_repo,
             self.videos_repo,
+            self.settings.fuentes_dominios_bloqueados,
         )
 
     @cached_property
@@ -509,7 +510,7 @@ class FabricaServicios:
             self._c.llm,
             self.prompts_tutor,
             self.parser,
-            RespuestaTutorValidator(),
+            RespuestaTutorValidator(self.settings.fuentes_dominios_bloqueados),
             self.selector,
             SenalesExtractor(),
             ContextoEstudianteBuilder(self.settings.perfil_exploracion_cada),

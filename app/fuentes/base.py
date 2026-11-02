@@ -4,11 +4,15 @@ from datetime import date
 
 from app.models.enums import CategoriaFuente
 
+# Escala 2–4: no existen fuentes de autoridad 1, porque las editables por cualquiera se excluyen
+# por diseño (fuentes/bloqueo.py). Ninguna fuente por debajo del piso llega al modelo.
+AUTORIDAD_PISO = 2
 AUTORIDAD_POR_CATEGORIA = {
     CategoriaFuente.ACADEMICA_ABIERTA: 3,
     CategoriaFuente.INSTITUCIONAL_OFICIAL: 4,
     CategoriaFuente.EDUCATIVA_ABIERTA: 3,
-    CategoriaFuente.REFERENCIA: 1,
+    CategoriaFuente.REFERENCIA: 3,
+    CategoriaFuente.PRENSA_CONFIABLE: 2,
     CategoriaFuente.CURADA: 3,
     CategoriaFuente.WEB_GENERAL: 2,
 }
