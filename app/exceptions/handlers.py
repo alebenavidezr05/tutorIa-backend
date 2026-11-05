@@ -20,10 +20,14 @@ CODIGOS_HTTP = {404: "RECURSO_NO_ENCONTRADO", 405: "METODO_NO_PERMITIDO"}
 
 
 def respuesta_error(
-    status_code: int, codigo: str, mensaje: str, detalles: Any = None
+    status_code: int,
+    codigo: str,
+    mensaje: str,
+    detalles: Any = None,
+    cabeceras: dict[str, str] | None = None,
 ) -> JSONResponse:
     contenido = {"error": {"codigo": codigo, "mensaje": mensaje, "detalles": detalles}}
-    return JSONResponse(status_code=status_code, content=contenido)
+    return JSONResponse(status_code=status_code, content=contenido, headers=cabeceras)
 
 
 def _campo(loc: tuple[Any, ...]) -> str:
@@ -35,7 +39,7 @@ async def _manejar_app_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)
     if exc.status_code >= 500:
         logger.error("error_app codigo=%s tipo=%s", exc.codigo, type(exc).__name__)
-    return respuesta_error(exc.status_code, exc.codigo, exc.mensaje, exc.detalles)
+    return respuesta_error(exc.status_code, exc.codigo, exc.mensaje, exc.detalles, exc.cabeceras)
 
 
 async def _manejar_validacion(_: Request, exc: Exception) -> JSONResponse:

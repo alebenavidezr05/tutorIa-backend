@@ -65,14 +65,27 @@ class AuthService:
     def registrar(self, entrada: RegistroEntrada, contexto: ContextoSolicitud) -> SesionAutenticada:
         self._consentimientos.validar_registro(entrada)
         self._validar_edad(entrada)
+        # La edad la decide el servidor; de 13 a 17 años se exige el correo del acudiente.
+        menor = es_menor(entrada.fecha_nacimiento, hoy_utc(), self._settings.edad_mayoria)
+        correo_acudiente = (
+            self._autorizaciones.validar_correo_acudiente(entrada.correo_acudiente, entrada.correo)
+            if menor
+            else None
+        )
         correo_hash = self._indice.calcular(entrada.correo)
         if self._usuarios.existe_correo_hash(correo_hash):
             raise CorreoYaRegistradoError()
-        usuario = self._crear_usuario(entrada, correo_hash)
+        usuario = self._crear_usuario(entrada, correo_hash, menor)
         self._crear_suscripcion_y_perfil(usuario, entrada.acepta_personalizacion)
-        menor = es_menor(usuario.fecha_nacimiento, hoy_utc(), self._settings.edad_mayoria)
         self._consentimientos.registrar_en_registro(usuario, entrada, menor, contexto)
+        correo = (
+            self._autorizaciones.crear_para_registro(usuario, correo_acudiente, contexto)
+            if correo_acudiente
+            else None
+        )
         self._uow.commit()
+        # Si el envío falla no se falla el registro: el estudiante puede reenviar.
+        self._autorizaciones.enviar_sin_fallar(correo)
         return self._sesion(usuario)
 
     def autenticar(self, entrada: LoginEntrada, contexto: ContextoSolicitud) -> SesionAutenticada:
@@ -128,7 +141,7 @@ class AuthService:
         validar_fecha_nacimiento(entrada.fecha_nacimiento, hoy, self._settings.edad_maxima)
         validar_edad_minima(entrada.fecha_nacimiento, hoy, self._settings.edad_minima)
 
-    def _crear_usuario(self, entrada: RegistroEntrada, correo_hash: str) -> Usuario:
+    def _crear_usuario(self, entrada: RegistroEntrada, correo_hash: str, menor: bool) -> Usuario:
         ahora = ahora_utc()
         return self._usuarios.agregar(
             Usuario(
@@ -139,7 +152,9 @@ class AuthService:
                 hash_contrasena=self._passwords.hashear(entrada.contrasena),
                 nivel_educativo=entrada.nivel_educativo,
                 tipo_nivel=entrada.tipo_nivel,
-                estado_cuenta=self._estado_inicial(entrada, correo_hash),
+                estado_cuenta=(
+                    EstadoCuenta.PENDIENTE_AUTORIZACION if menor else EstadoCuenta.ACTIVA
+                ),
                 fecha_aceptacion_tratamiento=ahora,
                 version_texto_tratamiento=entrada.version_politica,
                 version_token=0,
@@ -147,12 +162,6 @@ class AuthService:
                 activo=True,
             )
         )
-
-    def _estado_inicial(self, entrada: RegistroEntrada, correo_hash: str) -> EstadoCuenta:
-        menor = es_menor(entrada.fecha_nacimiento, hoy_utc(), self._settings.edad_mayoria)
-        if not menor or self._autorizaciones.tiene_autorizacion_vigente(correo_hash):
-            return EstadoCuenta.ACTIVA
-        return EstadoCuenta.PENDIENTE_AUTORIZACION
 
     def _crear_suscripcion_y_perfil(self, usuario: Usuario, personalizacion: bool) -> None:
         ahora = ahora_utc()

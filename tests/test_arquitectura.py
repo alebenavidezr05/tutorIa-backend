@@ -21,6 +21,8 @@ TRY_PERMITIDOS = {
     "almacen/s3_almacen.py",
     "almacen/base.py",
     "correo/ses_correo_client.py",
+    # Valida direcciones y envía sin propagar fallos: el registro no falla si el correo no sale.
+    "correo/tolerante.py",
     "crypto/kms_cifrador.py",
     "crypto/base.py",
     "crypto/jwt_firmador.py",

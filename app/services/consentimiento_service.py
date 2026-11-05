@@ -104,7 +104,9 @@ class ConsentimientoService:
         correo_estudiante_hash: str,
         otorgamientos: list[Otorgamiento],
         contexto: ContextoSolicitud,
+        texto_sha256: str,
     ) -> None:
+        """El acudiente confirma la frase exacta que vio: su huella es la prueba registrada."""
         for o in otorgamientos:
             self.registrar(
                 None,
@@ -113,6 +115,7 @@ class ConsentimientoService:
                 OtorgadoPor.REPRESENTANTE_LEGAL,
                 contexto,
                 id_autorizacion,
+                texto_sha256,
             )
 
     def registrar(
@@ -123,6 +126,7 @@ class ConsentimientoService:
         otorgado_por: OtorgadoPor,
         contexto: ContextoSolicitud,
         id_autorizacion: uuid.UUID | None = None,
+        texto_sha256: str | None = None,
     ) -> None:
         self._consentimientos.insertar(
             Consentimiento(
@@ -133,7 +137,7 @@ class ConsentimientoService:
                 otorgado=otorgamiento.otorgado,
                 otorgado_por=otorgado_por,
                 version_politica=self._settings.politica_version,
-                texto_sha256=self._politica.huella(otorgamiento.finalidad),
+                texto_sha256=texto_sha256 or self._politica.huella(otorgamiento.finalidad),
                 ip_hash=self.hash_ip(contexto.ip),
                 fecha=ahora_utc(),
             )

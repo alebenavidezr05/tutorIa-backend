@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 
 from app.models.autorizacion_acudiente import AutorizacionAcudiente
 from app.models.enums import EstadoAutorizacion
@@ -31,15 +31,45 @@ class AutorizacionRepository(RepositorioBase[AutorizacionAcudiente]):
         )
         return self._session.scalar(consulta)
 
-    def contar_solicitudes_desde(self, correo_hash: str, desde: datetime) -> int:
-        consulta = select(func.count()).where(
+    def fechas_solicitud_desde(self, correo_hash: str, desde: datetime) -> list[datetime]:
+        """Fechas de las solicitudes recientes en las que el correo es acudiente o estudiante."""
+        consulta = select(AutorizacionAcudiente.fecha_solicitud).where(
             or_(
                 AutorizacionAcudiente.correo_acudiente_hash == correo_hash,
                 AutorizacionAcudiente.correo_estudiante_hash == correo_hash,
             ),
             AutorizacionAcudiente.fecha_solicitud >= desde,
         )
-        return int(self._session.scalar(consulta) or 0)
+        return list(self._session.scalars(consulta))
+
+    def obtener_ultima_por_estudiante(
+        self, correo_estudiante_hash: str
+    ) -> AutorizacionAcudiente | None:
+        consulta = (
+            select(AutorizacionAcudiente)
+            .where(AutorizacionAcudiente.correo_estudiante_hash == correo_estudiante_hash)
+            .order_by(AutorizacionAcudiente.fecha_solicitud.desc())
+            .limit(1)
+        )
+        return self._session.scalar(consulta)
+
+    def obtener_rechazo_desde(
+        self, correo_estudiante_hash: str, correo_acudiente_hash: str, desde: datetime
+    ) -> AutorizacionAcudiente | None:
+        """Rechazo reciente del mismo acudiente para el mismo estudiante (fecha_verificacion es
+        la fecha en que el acudiente respondió)."""
+        consulta = (
+            select(AutorizacionAcudiente)
+            .where(
+                AutorizacionAcudiente.correo_estudiante_hash == correo_estudiante_hash,
+                AutorizacionAcudiente.correo_acudiente_hash == correo_acudiente_hash,
+                AutorizacionAcudiente.estado == EstadoAutorizacion.RECHAZADA,
+                AutorizacionAcudiente.fecha_verificacion >= desde,
+            )
+            .order_by(AutorizacionAcudiente.fecha_verificacion.desc())
+            .limit(1)
+        )
+        return self._session.scalar(consulta)
 
     def listar_pendientes_por_estudiante(
         self, correo_estudiante_hash: str

@@ -1,5 +1,9 @@
 {
   "vigente_desde": "2026-10-18",
+  "autorizacion_acudiente": {
+    "revision": "PENDIENTE de revisión del abogado",
+    "texto": "Soy madre, padre o representante legal de la o el estudiante y autorizo a TutorIA a tratar sus datos personales para que use la aplicación, incluido el procesamiento de sus mensajes con proveedores de inteligencia artificial ubicados fuera de Colombia; sé que puedo revocar esta autorización en cualquier momento."
+  },
   "finalidades": {
     "TRATAMIENTO": {
       "obligatoria": true,

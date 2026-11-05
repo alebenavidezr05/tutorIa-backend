@@ -5,12 +5,15 @@ from app.almacen.base import Almacen
 from app.core.config import Settings
 from app.core.tiempo import ahora_utc
 from app.core.unit_of_work import UnitOfWork
+from app.models.autorizacion_acudiente import AutorizacionAcudiente
 from app.models.enums import EstadoAutorizacion
+from app.models.usuario import Usuario
 from app.repositories.archivo import ArchivoRepository
 from app.repositories.autorizacion import AutorizacionRepository
 from app.repositories.conversacion import ConversacionRepository
 from app.repositories.seguridad import AlertaSeguridadRepository
 from app.repositories.uso import ConsumoIARepository
+from app.repositories.usuario import UsuarioRepository
 from app.repositories.visual import RecursoVisualRepository
 from app.services.supresor_datos import SupresorDatos
 
@@ -24,6 +27,7 @@ class ResumenLimpieza:
     consumos: int
     copias_imagenes: int
     autorizaciones_vencidas: int
+    cuentas_pendientes_eliminadas: int
 
 
 class RetencionService:
@@ -37,6 +41,7 @@ class RetencionService:
         consumos: ConsumoIARepository,
         recursos: RecursoVisualRepository,
         autorizaciones: AutorizacionRepository,
+        usuarios: UsuarioRepository,
         supresor: SupresorDatos,
         almacen: Almacen,
         settings: Settings,
@@ -48,6 +53,7 @@ class RetencionService:
         self._consumos = consumos
         self._recursos = recursos
         self._autorizaciones = autorizaciones
+        self._usuarios = usuarios
         self._supresor = supresor
         self._almacen = almacen
         self._settings = settings
@@ -55,6 +61,7 @@ class RetencionService:
 
     def limpiar(self) -> ResumenLimpieza:
         archivos, pendientes = self._limpiar_archivos()
+        claves_cuentas = self._eliminar_cuentas_pendientes()
         resumen = ResumenLimpieza(
             archivos=archivos,
             archivos_pendientes=pendientes,
@@ -65,8 +72,10 @@ class RetencionService:
             ),
             copias_imagenes=self._borrar_copias_imagenes(),
             autorizaciones_vencidas=self._vencer_autorizaciones(),
+            cuentas_pendientes_eliminadas=len(claves_cuentas),
         )
         self._uow.commit()
+        self._almacen.eliminar_sin_fallar(c for claves in claves_cuentas for c in claves)
         return resumen
 
     @staticmethod
@@ -117,3 +126,29 @@ class RetencionService:
         for autorizacion in vencidas:
             autorizacion.estado = EstadoAutorizacion.VENCIDA
         return len(vencidas)
+
+    def _eliminar_cuentas_pendientes(self) -> list[list[str]]:
+        """Cuenta de menor que nadie autorizó (pendiente, rechazada, expirada o revocada) durante
+        RETENCION_PENDIENTE_DIAS desde su último movimiento: se suprime con sus solicitudes y el
+        correo del acudiente. Pendiente de revisión del abogado. Devuelve claves del almacén."""
+        limite = self._hace(self._settings.retencion_pendiente_dias)
+        eliminadas: list[list[str]] = []
+        for usuario in self._usuarios.listar_pendientes_autorizacion():
+            solicitudes = self._autorizaciones.listar_por_estudiante(usuario.correo_hash)
+            if self._ultimo_movimiento(usuario, solicitudes) >= limite:
+                continue
+            for solicitud in solicitudes:
+                self._autorizaciones.eliminar(solicitud)
+            eliminadas.append(self._supresor.suprimir(usuario))
+        return eliminadas
+
+    @staticmethod
+    def _ultimo_movimiento(usuario: Usuario, solicitudes: list[AutorizacionAcudiente]) -> datetime:
+        fechas = [usuario.fecha_registro]
+        for s in solicitudes:
+            fechas.extend(
+                f
+                for f in (s.fecha_solicitud, s.fecha_verificacion, s.fecha_revocacion)
+                if f is not None
+            )
+        return max(fechas)

@@ -2,36 +2,26 @@
 
 from app.correo.base import Correo
 
-PROVEEDORES_INFORMADOS = (
-    "Anthropic (EE. UU.) para generar las explicaciones; OpenAI (EE. UU.) para moderar contenido "
-    "y, como último recurso, generar ilustraciones; Amazon Web Services para alojar el servicio, "
-    "los archivos y el correo; y YouTube/Google cuando se reproduce un video."
-)
-
 
 def solicitud_autorizacion(
-    destinatario: str, correo_estudiante: str, enlace: str, horas_vigencia: int, enlace_revocar: str
+    destinatario: str,
+    nombre_estudiante: str,
+    correo_estudiante: str,
+    enlace: str,
+    horas_vigencia: int,
 ) -> Correo:
+    """Correo al acudiente: solo primer nombre y correo enmascarado del estudiante."""
     texto = f"""Hola:
 
-Recibimos una solicitud para que {correo_estudiante} use TutorIA, un asistente de estudio con \
-inteligencia artificial que enseña sin resolver tareas. Como su representante legal, tu \
-autorización es necesaria antes de que pueda usar la aplicación.
+{nombre_estudiante} ({correo_estudiante}) se registró en TutorIA y necesita tu autorización para usarla. TutorIA es un asistente de estudio con inteligencia artificial que explica los temas sin resolver las tareas.
 
-Para qué tratamos sus datos: crear la cuenta, personalizar las explicaciones de estudio (solo \
-información pedagógica) y guardar el historial de sus sesiones. No pedimos documento, teléfono \
-ni dirección, y no usamos sus datos para publicidad.
+Revisar y autorizar: {enlace}
 
-Quién recibe datos: {PROVEEDORES_INFORMADOS}
+El enlace vence en {horas_vigencia} horas.
 
-Para revisar y confirmar la autorización, abre este enlace (vence en {horas_vigencia} horas):
-{enlace}
-
-Puedes revocar la autorización en cualquier momento desde:
-{enlace_revocar}
-
-Si no reconoces esta solicitud, ignora este correo: la cuenta seguirá bloqueada."""
-    return Correo(destinatario, "Autoriza el uso de TutorIA", texto)
+Si no esperabas este mensaje, puedes ignorarlo."""
+    asunto = f"{nombre_estudiante} necesita tu autorización para usar TutorIA"
+    return Correo(destinatario, asunto, texto)
 
 
 def autorizacion_confirmada(

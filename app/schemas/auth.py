@@ -28,6 +28,9 @@ class RegistroEntrada(BaseModel):
     acepta_personalizacion: bool = False
     acepta_comunicaciones: bool = False
     entiende_datos_menor: bool = False
+    # Obligatorio de 13 a 17 años (lo decide el servidor); se valida en el service para responder
+    # con un código estable (CORREO_ACUDIENTE_*). Mayor de edad: se ignora.
+    correo_acudiente: str | None = Field(default=None, max_length=254)
 
     @field_validator("nombre")
     @classmethod

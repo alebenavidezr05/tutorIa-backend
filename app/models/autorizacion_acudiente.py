@@ -29,5 +29,6 @@ class AutorizacionAcudiente(Base):
     ip_hash: Mapped[str | None] = mapped_column(String(64))
     fecha_solicitud: Mapped[datetime] = mapped_column(FechaHoraUTC)
     fecha_expiracion_token: Mapped[datetime] = mapped_column(FechaHoraUTC)
+    # Fecha en que el acudiente respondió desde el enlace (AUTORIZADA o RECHAZADA).
     fecha_verificacion: Mapped[datetime | None] = mapped_column(FechaHoraUTC)
     fecha_revocacion: Mapped[datetime | None] = mapped_column(FechaHoraUTC)

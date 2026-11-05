@@ -30,6 +30,9 @@ Variables de fuentes a conocer (detalle en [`docs/fuentes.md`](docs/fuentes.md))
 cualquiera: la app no arranca si se configura uno), `FUENTES_DOMINIOS_BLOQUEADOS` (amplía la lista
 base de dominios excluidos, nunca la reduce) y `PRENSA_RESPALDA_SOLA` (por defecto `false`).
 
+Autorización del acudiente (menores de 13 a 17 años): la inicia el estudiante al registrarse.
+Contrato de la API y variables en [`docs/autorizacion_acudiente.md`](docs/autorizacion_acudiente.md).
+
 ## Pruebas
 
 ```bash

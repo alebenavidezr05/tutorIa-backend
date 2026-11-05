@@ -50,8 +50,20 @@ class EstadoCuenta(StrEnum):
 class EstadoAutorizacion(StrEnum):
     PENDIENTE_VERIFICACION = "PENDIENTE_VERIFICACION"
     AUTORIZADA = "AUTORIZADA"
+    RECHAZADA = "RECHAZADA"
     REVOCADA = "REVOCADA"
     VENCIDA = "VENCIDA"
+
+
+class EstadoAutorizacionEstudiante(StrEnum):
+    """Estado que ve el estudiante pendiente (GET /autorizaciones/mia)."""
+
+    SIN_SOLICITUD = "SIN_SOLICITUD"
+    PENDIENTE = "PENDIENTE"
+    AUTORIZADA = "AUTORIZADA"
+    RECHAZADA = "RECHAZADA"
+    REVOCADA = "REVOCADA"
+    EXPIRADA = "EXPIRADA"
 
 
 class RolMensaje(StrEnum):

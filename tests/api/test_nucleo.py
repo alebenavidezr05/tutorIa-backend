@@ -285,7 +285,8 @@ class TestSuscripcionYPagos:
     def test_menor_sin_permiso_de_compras(self, client: TestClient) -> None:
         from tests.api.test_autorizacion import autorizar_menor
 
-        autorizar_menor(client, permite_compras=False)
+        # La autorización ya no pregunta por compras: un menor nunca puede iniciar un checkout.
+        autorizar_menor(client)
         respuesta = client.post("/api/v1/suscripcion/checkout")
         assert (
             respuesta.status_code == 403

@@ -1,5 +1,6 @@
 """Retención: borra archivos, conversaciones, alertas, consumos y copias de imágenes vencidos,
-vence tokens de autorización pendientes y marca como fallidos los trabajos visuales huérfanos."""
+vence tokens de autorización pendientes, suprime cuentas de menores que nadie autorizó
+(RETENCION_PENDIENTE_DIAS) y marca como fallidos los trabajos visuales huérfanos."""
 
 import sys
 

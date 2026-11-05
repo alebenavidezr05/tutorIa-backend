@@ -73,6 +73,13 @@ class PoliticaService:
         texto_finalidad = str(self._textos.finalidades[finalidad.value]["texto"])
         return sha256_hex(f"{self._politica}\n---\n{texto_finalidad}")
 
+    def texto_autorizacion_acudiente(self) -> str:
+        return self._textos.autorizacion_acudiente
+
+    def huella_autorizacion_acudiente(self) -> str:
+        """Huella de la frase exacta que ve y confirma el acudiente."""
+        return sha256_hex(self._textos.autorizacion_acudiente)
+
     def marcadores_pendientes(self) -> list[str]:
         return sorted(set(_PATRON_MARCADOR.findall(self._politica)))
 

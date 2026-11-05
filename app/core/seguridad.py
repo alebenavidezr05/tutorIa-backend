@@ -15,9 +15,10 @@ RUTAS_PUBLICAS: frozenset[tuple[str, str]] = frozenset(
         ("GET", f"{PREFIJO_API}/politica-tratamiento"),
         ("GET", f"{PREFIJO_API}/cumplimiento"),
         # El acudiente no tiene cuenta: se autentica con un token de un solo propósito por correo.
-        ("POST", f"{PREFIJO_API}/autorizaciones"),
+        # Ninguna de estas rutas envía correos a direcciones nuevas: solo las inicia el registro.
         ("POST", f"{PREFIJO_API}/autorizaciones/consultar"),
         ("POST", f"{PREFIJO_API}/autorizaciones/confirmar"),
+        ("POST", f"{PREFIJO_API}/autorizaciones/rechazar"),
         ("POST", f"{PREFIJO_API}/autorizaciones/revocar"),
         # La pasarela no tiene cookie: se autentica con la firma del cuerpo.
         ("POST", f"{PREFIJO_API}/pagos/webhook/{{proveedor}}"),

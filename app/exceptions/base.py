@@ -6,9 +6,15 @@ class AppError(Exception):
     codigo: ClassVar[str] = "ERROR_INTERNO"
     mensaje_por_defecto: ClassVar[str] = "Ocurrió un error inesperado. Intenta de nuevo más tarde."
 
-    def __init__(self, mensaje: str | None = None, detalles: Any = None) -> None:
+    def __init__(
+        self,
+        mensaje: str | None = None,
+        detalles: Any = None,
+        cabeceras: dict[str, str] | None = None,
+    ) -> None:
         self.mensaje = mensaje or self.mensaje_por_defecto
         self.detalles = detalles
+        self.cabeceras = cabeceras
         super().__init__(self.mensaje)
 
 
@@ -145,6 +151,18 @@ class DatoInvalidoError(AppError):
     status_code = 422
     codigo = "DATO_INVALIDO"
     mensaje_por_defecto = "Uno de los datos enviados no es válido."
+
+
+class CorreoAcudienteRequeridoError(AppError):
+    status_code = 422
+    codigo = "CORREO_ACUDIENTE_REQUERIDO"
+    mensaje_por_defecto = "Escribe el correo de tu madre, padre o acudiente."
+
+
+class CorreoAcudienteInvalidoError(AppError):
+    status_code = 422
+    codigo = "CORREO_ACUDIENTE_INVALIDO"
+    mensaje_por_defecto = "Revisa el correo de tu acudiente: debe ser válido y distinto del tuyo."
 
 
 class ConsentimientoRequeridoError(AppError):

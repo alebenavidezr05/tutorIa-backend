@@ -35,6 +35,7 @@ router_publico.include_router(pagos.publico)
 router_sesion = APIRouter(dependencies=[Depends(get_usuario_actual_id)])
 router_sesion.include_router(auth.sesion)
 router_sesion.include_router(privacidad.sesion)
+router_sesion.include_router(autorizaciones.sesion)
 
 router_privado = APIRouter(dependencies=[Depends(get_usuario_activo_id)])
 router_privado.include_router(diagnostico.router)

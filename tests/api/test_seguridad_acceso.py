@@ -21,6 +21,8 @@ RUTAS_SOLO_SESION = {
     ("GET", "/api/v1/auth/me"),
     ("POST", "/api/v1/auth/logout"),
     ("POST", "/api/v1/privacidad/aceptar-politica"),
+    ("GET", "/api/v1/autorizaciones/mia"),
+    ("POST", "/api/v1/autorizaciones/reenviar"),
 }
 DEPENDENCIAS_DE_SESION = {get_usuario_actual_id, get_usuario_activo_id}
 
@@ -128,7 +130,12 @@ def test_version_de_token_desactualizada_invalida_la_sesion(
 def test_cuenta_pendiente_solo_accede_a_me_y_logout(client: TestClient) -> None:
     from tests.conftest import fecha_hace_anios
 
-    registrar(client, fecha_nacimiento=fecha_hace_anios(15), entiende_datos_menor=True)
+    registrar(
+        client,
+        fecha_nacimiento=fecha_hace_anios(15),
+        entiende_datos_menor=True,
+        correo_acudiente="acudiente@example.com",
+    )
     assert client.get("/api/v1/auth/me").status_code == 200
     respuesta = client.get("/api/v1/suscripcion")
     assert respuesta.status_code == 403

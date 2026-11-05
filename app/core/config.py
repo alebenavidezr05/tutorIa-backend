@@ -97,6 +97,8 @@ class Settings(BaseSettings):
     autorizacion_token_horas: int = 72
     autorizacion_expira_dias: int = 365
     autorizacion_max_solicitudes_por_hora: int = 3
+    autorizacion_reenvio_espera_segundos: int = 120
+    autorizacion_bloqueo_rechazo_dias: int = 7
 
     # Correo
     correo_proveedor: Literal["fake", "smtp", "ses"] = "fake"
@@ -278,6 +280,8 @@ class Settings(BaseSettings):
     retencion_alertas_dias: int = 365
     retencion_mensajes_dias: int = 365
     retencion_consumo_dias: int = 730
+    # Cuenta de menor que nadie autoriza: se elimina con su solicitud (pendiente revisión legal).
+    retencion_pendiente_dias: int = 30
 
     # Protección de datos (Ley 1581)
     responsable_razon_social: str = ""
