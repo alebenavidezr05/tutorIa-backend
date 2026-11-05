@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import exists, select
 
 from app.models.enums import EstadoCuenta
@@ -15,6 +17,14 @@ class UsuarioRepository(RepositorioBase[Usuario]):
         return bool(
             self._session.scalar(select(exists().where(Usuario.correo_hash == correo_hash)))
         )
+
+    def listar_sin_verificar_desde_antes_de(self, limite: datetime) -> list[Usuario]:
+        consulta = select(Usuario).where(
+            Usuario.correo_verificado.is_(False),
+            Usuario.activo.is_(True),
+            Usuario.fecha_registro < limite,
+        )
+        return list(self._session.scalars(consulta))
 
     def listar_pendientes_autorizacion(self) -> list[Usuario]:
         consulta = select(Usuario).where(

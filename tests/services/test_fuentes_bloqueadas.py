@@ -201,7 +201,7 @@ def test_api_solo_fuentes_bloqueadas_no_llama_al_llm(client: TestClient) -> None
     llm = contenedor.llm
     llamadas = len(llm.solicitudes)  # type: ignore[attr-defined]
     respuesta = client.post("/api/v1/diagnostico", json={"tema": "fotosintesis"})
-    assert respuesta.status_code == 422
+    assert respuesta.status_code == 404
     assert respuesta.json()["error"]["codigo"] == "TEMA_SIN_FUENTES"
     assert len(llm.solicitudes) == llamadas  # type: ignore[attr-defined]
 

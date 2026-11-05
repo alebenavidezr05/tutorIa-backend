@@ -36,6 +36,7 @@ from app.services.tutor.consolidacion_service import ConsolidacionService
 from app.services.tutor.conversacion_service import ConversacionService
 from app.services.tutor.feedback_service import FeedbackService
 from app.services.tutor.tutor_service import TutorService
+from app.services.verificacion_correo_service import VerificacionCorreoService
 from app.services.visual.recurso_visual_service import RecursoVisualService
 from app.services.visual.trabajo_visual_service import TrabajoVisualService
 
@@ -90,12 +91,19 @@ def get_usuario_activo_id(
     contenedor: Contenedor = Depends(get_contenedor),
     auth: AuthService = Depends(get_auth_service),
 ) -> uuid.UUID:
-    """Acceso «Activa»: sesión válida, cuenta activa, autorizada y con la política vigente."""
+    """Acceso «Activa»: sesión válida, cuenta activa, correo verificado, autorizada y con la
+    política vigente."""
     return auth.asegurar_sesion_activa(_token(request, contenedor))
 
 
 def get_autorizacion_service(f: FabricaServicios = Depends(get_fabrica)) -> AutorizacionService:
     return f.autorizacion
+
+
+def get_verificacion_correo_service(
+    f: FabricaServicios = Depends(get_fabrica),
+) -> VerificacionCorreoService:
+    return f.verificacion_correo
 
 
 def get_perfil_service(f: FabricaServicios = Depends(get_fabrica)) -> PerfilService:

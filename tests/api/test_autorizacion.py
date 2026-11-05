@@ -24,6 +24,7 @@ from tests.conftest import (
     fecha_hace_anios,
     iniciar_conversacion,
     nuevo_cliente,
+    verificar_correo,
 )
 
 _PATRON_TOKEN = re.compile(r"#token=([A-Za-z0-9_-]+)")
@@ -34,6 +35,10 @@ def _correo(cliente: TestClient) -> FakeCorreoClient:
     correo = contenedor_de(cliente).correo
     assert isinstance(correo, FakeCorreoClient)
     return correo
+
+
+def _al_acudiente(cliente: TestClient, destinatario: str = ACUDIENTE) -> int:
+    return sum(1 for c in _correo(cliente).enviados if c.destinatario == destinatario)
 
 
 def _token_del_ultimo_correo(cliente: TestClient) -> str:
@@ -54,9 +59,11 @@ def _datos_menor(**cambios: Any) -> dict[str, Any]:
 
 
 def registrar_menor(cliente: TestClient, **cambios: Any) -> dict[str, Any]:
+    """Registra un menor con el correo propio ya confirmado: solo falta el acudiente."""
     respuesta = cliente.post("/api/v1/auth/registro", json=_datos_menor(**cambios))
     assert respuesta.status_code == 201, respuesta.text
     usuario: dict[str, Any] = respuesta.json()
+    verificar_correo(cliente, usuario["correo"])
     return usuario
 
 
@@ -101,7 +108,7 @@ def test_mayor_de_edad_registra_igual_e_ignora_correo_acudiente(client: TestClie
         "/api/v1/auth/registro", json=datos_registro(correo_acudiente="no-es-correo")
     )
     assert respuesta.status_code == 201 and respuesta.json()["estado_cuenta"] == "ACTIVA"
-    assert _correo(client).enviados == []
+    assert [c.destinatario for c in _correo(client).enviados] == [respuesta.json()["correo"]]
     assert client.get("/api/v1/autorizaciones/mia").json()["estado"] == "SIN_SOLICITUD"
 
 
@@ -152,8 +159,9 @@ def test_registro_de_menor_crea_solicitud_y_envia_correo(client: TestClient) -> 
 
 def test_registro_termina_bien_aunque_falle_el_correo(client: TestClient) -> None:
     _correo(client).falla = True
-    menor = registrar_menor(client)
-    assert menor["estado_cuenta"] == "PENDIENTE_AUTORIZACION"
+    respuesta = client.post("/api/v1/auth/registro", json=_datos_menor())
+    assert respuesta.status_code == 201
+    assert respuesta.json()["estado_cuenta"] == "PENDIENTE_AUTORIZACION"
     assert client.get("/api/v1/autorizaciones/mia").json()["estado"] == "PENDIENTE"
 
 
@@ -162,10 +170,10 @@ def test_tope_por_acudiente_no_envia_mas_correos_ni_lo_revela(
 ) -> None:
     for _ in range(settings.autorizacion_max_solicitudes_por_hora):
         registrar_menor(nuevo_cliente(client.app))
-    enviados = len(_correo(client).enviados)
+    enviados = _al_acudiente(client)
     respuesta = nuevo_cliente(client.app).post("/api/v1/auth/registro", json=_datos_menor())
     assert respuesta.status_code == 201
-    assert len(_correo(client).enviados) == enviados
+    assert _al_acudiente(client) == enviados
 
 
 # Pantalla del adulto

@@ -100,6 +100,11 @@ class Settings(BaseSettings):
     autorizacion_reenvio_espera_segundos: int = 120
     autorizacion_bloqueo_rechazo_dias: int = 7
 
+    # Verificación del correo de quien se registra
+    verificacion_correo_vigencia_horas: int = 24
+    verificacion_reenvio_espera_segundos: int = 120
+    verificacion_max_envios_por_hora: int = 5
+
     # Correo
     correo_proveedor: Literal["fake", "smtp", "ses"] = "fake"
     correo_remitente: str = "no-responder@tutoria.local"
@@ -187,6 +192,10 @@ class Settings(BaseSettings):
     fuentes_obligatorias: bool = True
     fuentes_max_por_turno: int = 5
     fuentes_cache_dias: int = 30
+    # Resultados de búsqueda por tema normalizado y proveedor (no se llama al proveedor si hay).
+    fuentes_cache_horas: int = 72
+    # Opcional; va en la cabecera Authorization. Nunca dentro de FUENTES_PROVEEDORES.
+    openalex_api_key: SecretStr | None = None
     fuentes_dominios_permitidos: list[str] = Field(default_factory=list)
     # Suma a la lista base de fuentes/bloqueo.py; nunca la reduce.
     fuentes_dominios_bloqueados: list[str] = Field(default_factory=list)
@@ -282,6 +291,8 @@ class Settings(BaseSettings):
     retencion_consumo_dias: int = 730
     # Cuenta de menor que nadie autoriza: se elimina con su solicitud (pendiente revisión legal).
     retencion_pendiente_dias: int = 30
+    # Cuenta que no verifica su correo: se elimina con sus tokens (pendiente revisión legal).
+    retencion_no_verificada_dias: int = 7
 
     # Protección de datos (Ley 1581)
     responsable_razon_social: str = ""

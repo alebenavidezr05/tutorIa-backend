@@ -1,3 +1,4 @@
+import re
 import uuid
 from collections.abc import Iterator
 from datetime import date
@@ -84,10 +85,32 @@ def datos_registro(**cambios: Any) -> dict[str, Any]:
     return datos
 
 
-def registrar(cliente: TestClient, **cambios: Any) -> dict[str, Any]:
+_PATRON_VERIFICACION = re.compile(r"/verificar-correo#token=([A-Za-z0-9_-]+)")
+
+
+def token_verificacion(cliente: TestClient, correo: str) -> str:
+    """Token del último correo de verificación enviado a `correo` (cliente de correo falso)."""
+    enviados = contenedor_de(cliente).correo.enviados  # type: ignore[attr-defined]
+    for enviado in reversed(enviados):
+        coincidencia = _PATRON_VERIFICACION.search(enviado.texto)
+        if enviado.destinatario == correo and coincidencia:
+            return coincidencia.group(1)
+    raise AssertionError("no se envió el correo de verificación")
+
+
+def verificar_correo(cliente: TestClient, correo: str) -> None:
+    token = token_verificacion(cliente, correo)
+    respuesta = cliente.post("/api/v1/auth/verificar-correo", json={"token": token})
+    assert respuesta.status_code == 200, respuesta.text
+
+
+def registrar(cliente: TestClient, verificar: bool = True, **cambios: Any) -> dict[str, Any]:
+    """Registra y, por defecto, confirma el correo (la mayoría de pruebas usan la app activa)."""
     respuesta = cliente.post("/api/v1/auth/registro", json=datos_registro(**cambios))
     assert respuesta.status_code == 201, respuesta.text
     usuario: dict[str, Any] = respuesta.json()
+    if verificar:
+        verificar_correo(cliente, usuario["correo"])
     return usuario
 
 

@@ -2,6 +2,7 @@ from app.models.actividad import Actividad
 from app.models.alerta_seguridad import AlertaSeguridad
 from app.models.archivo_adjunto import ArchivoAdjunto
 from app.models.autorizacion_acudiente import AutorizacionAcudiente
+from app.models.cache_fuentes import CacheFuentes
 from app.models.consentimiento import Consentimiento
 from app.models.consumo_ia import ConsumoIA
 from app.models.conversacion import Conversacion
@@ -20,6 +21,7 @@ from app.models.suscripcion import Suscripcion
 from app.models.trabajo_visual import TrabajoVisual
 from app.models.uso_diario import UsoDiario
 from app.models.usuario import Usuario
+from app.models.verificacion_correo import VerificacionCorreo
 from app.models.video_curado import VideoCurado
 
 __all__ = [
@@ -27,6 +29,7 @@ __all__ = [
     "AlertaSeguridad",
     "ArchivoAdjunto",
     "AutorizacionAcudiente",
+    "CacheFuentes",
     "Consentimiento",
     "ConsumoIA",
     "Conversacion",
@@ -47,5 +50,6 @@ __all__ = [
     "TrabajoVisual",
     "UsoDiario",
     "Usuario",
+    "VerificacionCorreo",
     "VideoCurado",
 ]

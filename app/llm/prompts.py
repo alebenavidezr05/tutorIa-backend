@@ -41,6 +41,15 @@ ESQUEMA_CUESTIONARIO = (
     '"opciones": {"a": "texto", "b": "texto", "c": "texto", "d": "texto"}, '
     '"respuesta_correcta": "a|b|c|d", "id_fuente": "uuid de la fuente que respalda la respuesta"}]}'
 )
+REGLAS_FORMATO_CUESTIONARIO = (
+    "Reglas del formato (obligatorias): un único objeto JSON, sin texto antes ni después y sin "
+    "Markdown. Claves exactas y sin claves adicionales: tema_academico (booleano true o false, "
+    "sin comillas), materia (texto de máximo 100 caracteres) y preguntas (lista de máximo 20). "
+    "Cada pregunta tiene exactamente: enunciado (texto de 5 a 600 caracteres), opciones (objeto "
+    "con las cuatro claves a, b, c y d, cada una con texto no vacío de máximo 400 caracteres), "
+    "respuesta_correcta (una sola letra minúscula: a, b, c o d) e id_fuente (copia exacta de un "
+    "id_fuente de <fuentes>). Si el tema no es académico: tema_academico false y preguntas []."
+)
 ESQUEMA_PLAN = (
     '{"titulo": "texto", "explicacion": "texto", "tecnicas_estudio": ["texto"], '
     '"actividades": ["texto"], "fuentes_usadas": ["uuid"]}'
@@ -112,6 +121,19 @@ class PromptBuilder:
                 envolver("tema", tema),
                 formatear_fuentes(fuentes),
                 f"Responde con este JSON:\n{ESQUEMA_CUESTIONARIO}",
+                REGLAS_FORMATO_CUESTIONARIO,
+            ]
+        )
+
+    @staticmethod
+    def correccion_cuestionario(prompt: str, errores: list[str]) -> str:
+        """Segundo intento: mismo pedido más los campos que fallaron (solo rutas y tipos)."""
+        return "\n\n".join(
+            [
+                prompt,
+                "CORRECCIÓN DE FORMATO: tu respuesta anterior no cumplía el formato. Campos con "
+                f"error (ruta:tipo): {', '.join(errores)}. Vuelve a generar el cuestionario "
+                "completo cumpliendo exactamente el JSON y las reglas del formato.",
             ]
         )
 

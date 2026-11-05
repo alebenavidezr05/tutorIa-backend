@@ -3,7 +3,9 @@
 Un estudiante de 13 a 17 años (edad calculada **en el servidor** a partir de `fecha_nacimiento`)
 escribe al registrarse el correo de su madre, padre o representante legal. El backend crea la
 cuenta en `PENDIENTE_AUTORIZACION` y le envía al adulto un enlace. El adulto ve un resumen corto y
-pulsa **Autorizo** o **No autorizo**. El adulto no tiene cuenta: se identifica con un token de un
+pulsa **Autorizo** o **No autorizo**. Es una condición independiente de la verificación del
+correo del propio estudiante ([`verificacion_correo.md`](verificacion_correo.md)): un menor
+necesita las dos para usar la aplicación. El adulto no tiene cuenta: se identifica con un token de un
 solo propósito (`secrets.token_urlsafe(32)`, guardado solo como SHA-256) que viaja en el fragmento
 del enlace: `${FRONTEND_URL}/autorizacion/confirmar#token=<token>`.
 
@@ -40,6 +42,8 @@ Estados de `/autorizaciones/mia`: `SIN_SOLICITUD`, `PENDIENTE`, `AUTORIZADA`, `R
 | `POLITICA_DESACTUALIZADA` | 409 | `version_politica` distinta de la vigente: el cliente recarga el texto |
 | `DEMASIADAS_SOLICITUDES` | 429 + `Retry-After` | espera mínima, tope por hora o bloqueo por rechazo |
 | `OPERACION_NO_PERMITIDA` | 403 | reenviar con una cuenta que no está pendiente |
+| `CORREO_NO_VERIFICADO` | 403 | rutas «Activa» con el correo propio sin confirmar (se evalúa antes que `AUTORIZACION_PENDIENTE`) |
+| `AUTORIZACION_PENDIENTE` | 403 | rutas «Activa» de un menor sin autorización vigente |
 
 ## Reglas
 

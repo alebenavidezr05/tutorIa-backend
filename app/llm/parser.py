@@ -15,6 +15,8 @@ from app.schemas.bloques import (
 ModeloT = TypeVar("ModeloT", bound=BaseModel)
 _PATRON_CERCA = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 _PATRON_OBJETO = re.compile(r"\{.*\}", re.DOTALL)
+MAX_ERRORES_INFORMADOS = 10
+ERROR_JSON = "(raiz):json_invalido"
 
 
 def _quitar_cercas(texto: str) -> str:
@@ -28,6 +30,24 @@ class LLMResponseParser:
 
     def parse_cuestionario(self, texto: str) -> CuestionarioGenerado:
         return self._desde_texto(texto, CuestionarioGenerado)
+
+    def intentar_parse_cuestionario(
+        self, texto: str
+    ) -> tuple[CuestionarioGenerado | None, list[str]]:
+        """Devuelve el cuestionario o la lista de fallos como «ruta:tipo» (p. ej.
+        `preguntas.0.opciones.d:missing`). Nunca incluye el texto generado ni los valores."""
+        try:
+            datos = json.loads(_quitar_cercas(texto))
+        except json.JSONDecodeError:
+            return None, [ERROR_JSON]
+        try:
+            return CuestionarioGenerado.model_validate(datos), []
+        except ValidationError as exc:
+            errores = [
+                f"{'.'.join(str(p) for p in e['loc']) or '(raiz)'}:{e['type']}"
+                for e in exc.errors(include_input=False, include_url=False)
+            ]
+            return None, errores[:MAX_ERRORES_INFORMADOS]
 
     def parse_plan(self, texto: str) -> PlanGenerado:
         return self._desde_texto(texto, PlanGenerado)

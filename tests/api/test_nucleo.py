@@ -128,7 +128,7 @@ class TestDiagnostico:
         llamadas = len(_llm(client).solicitudes)
         respuesta = client.post("/api/v1/diagnostico", json={"tema": "historia de Roma"})
         assert (
-            respuesta.status_code == 422
+            respuesta.status_code == 404
             and respuesta.json()["error"]["codigo"] == "TEMA_SIN_FUENTES"
         )
         assert len(_llm(client).solicitudes) == llamadas

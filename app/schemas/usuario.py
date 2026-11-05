@@ -17,6 +17,7 @@ class UsuarioPublico(BaseModel):
     nivel_educativo: str
     estado_cuenta: EstadoCuenta
     es_menor: bool
+    correo_verificado: bool
     fecha_registro: datetime
 
 

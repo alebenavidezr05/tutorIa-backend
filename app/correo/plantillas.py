@@ -24,6 +24,19 @@ Si no esperabas este mensaje, puedes ignorarlo."""
     return Correo(destinatario, asunto, texto)
 
 
+def verificacion_correo(destinatario: str, enlace: str, horas_vigencia: int) -> Correo:
+    texto = f"""Hola:
+
+TutorIA es una aplicación de estudio; confirma que este correo es tuyo para empezar.
+
+Confirmar mi correo: {enlace}
+
+El enlace vence en {horas_vigencia} horas.
+
+Si no fuiste tú, puedes ignorar este mensaje."""
+    return Correo(destinatario, "Confirma tu correo en TutorIA", texto)
+
+
 def autorizacion_confirmada(
     destinatario: str, correo_estudiante: str, enlace_revocar: str
 ) -> Correo:

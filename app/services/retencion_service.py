@@ -14,6 +14,7 @@ from app.repositories.conversacion import ConversacionRepository
 from app.repositories.seguridad import AlertaSeguridadRepository
 from app.repositories.uso import ConsumoIARepository
 from app.repositories.usuario import UsuarioRepository
+from app.repositories.verificacion_correo import VerificacionCorreoRepository
 from app.repositories.visual import RecursoVisualRepository
 from app.services.supresor_datos import SupresorDatos
 
@@ -28,6 +29,7 @@ class ResumenLimpieza:
     copias_imagenes: int
     autorizaciones_vencidas: int
     cuentas_pendientes_eliminadas: int
+    cuentas_no_verificadas_eliminadas: int
 
 
 class RetencionService:
@@ -42,6 +44,7 @@ class RetencionService:
         recursos: RecursoVisualRepository,
         autorizaciones: AutorizacionRepository,
         usuarios: UsuarioRepository,
+        verificaciones: VerificacionCorreoRepository,
         supresor: SupresorDatos,
         almacen: Almacen,
         settings: Settings,
@@ -54,6 +57,7 @@ class RetencionService:
         self._recursos = recursos
         self._autorizaciones = autorizaciones
         self._usuarios = usuarios
+        self._verificaciones = verificaciones
         self._supresor = supresor
         self._almacen = almacen
         self._settings = settings
@@ -61,6 +65,7 @@ class RetencionService:
 
     def limpiar(self) -> ResumenLimpieza:
         archivos, pendientes = self._limpiar_archivos()
+        claves_no_verificadas = self._eliminar_cuentas_no_verificadas()
         claves_cuentas = self._eliminar_cuentas_pendientes()
         resumen = ResumenLimpieza(
             archivos=archivos,
@@ -73,9 +78,12 @@ class RetencionService:
             copias_imagenes=self._borrar_copias_imagenes(),
             autorizaciones_vencidas=self._vencer_autorizaciones(),
             cuentas_pendientes_eliminadas=len(claves_cuentas),
+            cuentas_no_verificadas_eliminadas=len(claves_no_verificadas),
         )
         self._uow.commit()
-        self._almacen.eliminar_sin_fallar(c for claves in claves_cuentas for c in claves)
+        self._almacen.eliminar_sin_fallar(
+            c for claves in (*claves_cuentas, *claves_no_verificadas) for c in claves
+        )
         return resumen
 
     @staticmethod
@@ -137,10 +145,26 @@ class RetencionService:
             solicitudes = self._autorizaciones.listar_por_estudiante(usuario.correo_hash)
             if self._ultimo_movimiento(usuario, solicitudes) >= limite:
                 continue
-            for solicitud in solicitudes:
-                self._autorizaciones.eliminar(solicitud)
-            eliminadas.append(self._supresor.suprimir(usuario))
+            eliminadas.append(self._eliminar_cuenta(usuario))
         return eliminadas
+
+    def _eliminar_cuentas_no_verificadas(self) -> list[list[str]]:
+        """Cuenta que no verificó su correo en RETENCION_NO_VERIFICADA_DIAS: se suprime con sus
+        tokens (libera correos ocupados por registros ajenos). Pendiente de revisión legal."""
+        limite = self._hace(self._settings.retencion_no_verificada_dias)
+        return [
+            self._eliminar_cuenta(usuario)
+            for usuario in self._usuarios.listar_sin_verificar_desde_antes_de(limite)
+        ]
+
+    def _eliminar_cuenta(self, usuario: Usuario) -> list[str]:
+        """Borra solicitudes al acudiente y tokens de verificación, y suprime la cuenta (antes de
+        anonimizar, que cambia la huella del correo). Devuelve claves del almacén."""
+        for solicitud in self._autorizaciones.listar_por_estudiante(usuario.correo_hash):
+            self._autorizaciones.eliminar(solicitud)
+        for verificacion in self._verificaciones.listar_por_usuario(usuario.id_usuario):
+            self._verificaciones.eliminar(verificacion)
+        return self._supresor.suprimir(usuario)
 
     @staticmethod
     def _ultimo_movimiento(usuario: Usuario, solicitudes: list[AutorizacionAcudiente]) -> datetime:

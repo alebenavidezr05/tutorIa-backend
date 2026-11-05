@@ -53,6 +53,12 @@ class AutorizacionPendienteError(AppError):
     )
 
 
+class CorreoNoVerificadoError(AppError):
+    status_code = 403
+    codigo = "CORREO_NO_VERIFICADO"
+    mensaje_por_defecto = "Confirma tu correo para empezar. Revisa tu bandeja de entrada."
+
+
 class AccesoDenegadoError(AppError):
     status_code = 403
     codigo = "ACCESO_DENEGADO"
@@ -108,7 +114,19 @@ class AutorizacionInvalidaError(AppError):
     mensaje_por_defecto = "El enlace de autorización no es válido o ya venció."
 
 
+class VerificacionInvalidaError(AppError):
+    status_code = 404
+    codigo = "VERIFICACION_INVALIDA"
+    mensaje_por_defecto = "El enlace para confirmar tu correo no es válido o ya venció."
+
+
 # 409
+class CorreoYaVerificadoError(AppError):
+    status_code = 409
+    codigo = "CORREO_YA_VERIFICADO"
+    mensaje_por_defecto = "Tu correo ya está confirmado."
+
+
 class CorreoYaRegistradoError(AppError):
     status_code = 409
     codigo = "CORREO_YA_REGISTRADO"
@@ -186,7 +204,8 @@ class TemaNoPermitidoError(AppError):
 
 
 class TemaSinFuentesError(AppError):
-    status_code = 422
+    # 404 y no 422: el tema es válido; los proveedores respondieron sin fuentes verificables.
+    status_code = 404
     codigo = "TEMA_SIN_FUENTES"
     mensaje_por_defecto = (
         "No encontramos fuentes verificables sobre ese tema. Prueba con otras palabras."
@@ -277,6 +296,17 @@ class PasarelaPagosError(AppError):
     status_code = 502
     codigo = "PASARELA_NO_DISPONIBLE"
     mensaje_por_defecto = "La pasarela de pagos no está disponible. Intenta más tarde."
+
+
+class FuentesTemporalmenteNoDisponiblesError(AppError):
+    """Las fuentes no alcanzan porque un proveedor falló (límite, 5xx, timeout): reintentable."""
+
+    status_code = 503
+    codigo = "FUENTES_NO_DISPONIBLES"
+    mensaje_por_defecto = (
+        "No pudimos consultar las fuentes verificables en este momento. "
+        "Intenta de nuevo en unos minutos."
+    )
 
 
 class PagosNoDisponiblesError(AppError):

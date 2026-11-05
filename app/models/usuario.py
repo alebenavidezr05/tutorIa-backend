@@ -29,3 +29,6 @@ class Usuario(Base):
     version_token: Mapped[int] = mapped_column(Integer, default=0)
     fecha_registro: Mapped[datetime] = mapped_column(FechaHoraUTC)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Cuentas anteriores a la verificación quedan en true (migración en core/migraciones.py).
+    correo_verificado: Mapped[bool] = mapped_column(Boolean, default=False)
+    fecha_verificacion_correo: Mapped[datetime | None] = mapped_column(FechaHoraUTC)

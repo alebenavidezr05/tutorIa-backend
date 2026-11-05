@@ -30,8 +30,10 @@ Variables de fuentes a conocer (detalle en [`docs/fuentes.md`](docs/fuentes.md))
 cualquiera: la app no arranca si se configura uno), `FUENTES_DOMINIOS_BLOQUEADOS` (amplía la lista
 base de dominios excluidos, nunca la reduce) y `PRENSA_RESPALDA_SOLA` (por defecto `false`).
 
-Autorización del acudiente (menores de 13 a 17 años): la inicia el estudiante al registrarse.
-Contrato de la API y variables en [`docs/autorizacion_acudiente.md`](docs/autorizacion_acudiente.md).
+Registro: la cuenta nace con el correo sin verificar y la app exige confirmarlo
+([`docs/verificacion_correo.md`](docs/verificacion_correo.md)). Los menores de 13 a 17 años
+necesitan además la autorización de su acudiente, que piden al registrarse
+([`docs/autorizacion_acudiente.md`](docs/autorizacion_acudiente.md)).
 
 ## Pruebas
 

@@ -1,9 +1,14 @@
+import logging
 import uuid
 
 from app.core.config import Settings
 from app.core.tiempo import ahora_utc
 from app.core.unit_of_work import UnitOfWork
-from app.exceptions.base import RecursoNoEncontradoError, SesionYaEvaluadaError
+from app.exceptions.base import (
+    LLMRespuestaInvalidaError,
+    RecursoNoEncontradoError,
+    SesionYaEvaluadaError,
+)
 from app.llm.base import LLMClient, LLMSolicitud, TareaLLM
 from app.llm.parser import LLMResponseParser
 from app.llm.prompts import PromptBuilder
@@ -15,7 +20,7 @@ from app.models.sesion_diagnostico import SesionDiagnostico
 from app.models.usuario import Usuario
 from app.repositories.diagnostico import SesionDiagnosticoRepository
 from app.repositories.usuario import UsuarioRepository
-from app.schemas.bloques import PreguntaGenerada
+from app.schemas.bloques import CuestionarioGenerado, PreguntaGenerada
 from app.schemas.diagnostico import (
     CrearDiagnosticoEntrada,
     CuestionarioPublico,
@@ -29,7 +34,11 @@ from app.validators.cuestionario import CuestionarioValidator
 from app.validators.propiedad import validar_recurso_propio
 from app.validators.tema import validar_tema
 
+logger = logging.getLogger(__name__)
+
 MAX_MATERIA = 100
+# Si la respuesta no valida contra el esquema, se pide una vez corregir el formato.
+INTENTOS_CUESTIONARIO = 2
 MATERIA_POR_DEFECTO = "General"
 # Antes del diagnóstico no se conoce el nivel: se exige la autoridad mínima más baja.
 NIVEL_PREVIO_AL_DIAGNOSTICO = NivelCognitivo.BASICO
@@ -105,18 +114,33 @@ class DiagnosticoService:
             self._fuentes.a_contexto(fuentes),
             self._settings.diagnostico_preguntas,
         )
-        solicitud = LLMSolicitud.simple(
-            TareaLLM.CUESTIONARIO,
-            self._prompts.system(),
-            texto,
-            self._selector.para_tarea(TareaLLM.CUESTIONARIO),
-            self._settings.llm_max_tokens_cuestionario,
-        )
-        respuesta = self._llm.completar(solicitud)
-        self._consumo.registrar_llm(usuario.id_usuario, OperacionIA.CUESTIONARIO, respuesta)
-        cuestionario = self._parser.parse_cuestionario(respuesta.texto())
+        cuestionario = self._pedir_cuestionario(usuario, texto)
         preguntas = self._validador.validar(cuestionario, {f.id_fuente for f in fuentes})
         return (cuestionario.materia or MATERIA_POR_DEFECTO)[:MAX_MATERIA], preguntas
+
+    def _pedir_cuestionario(self, usuario: Usuario, prompt: str) -> CuestionarioGenerado:
+        texto = prompt
+        for intento in range(1, INTENTOS_CUESTIONARIO + 1):
+            solicitud = LLMSolicitud.simple(
+                TareaLLM.CUESTIONARIO,
+                self._prompts.system(),
+                texto,
+                self._selector.para_tarea(TareaLLM.CUESTIONARIO),
+                self._settings.llm_max_tokens_cuestionario,
+            )
+            respuesta = self._llm.completar(solicitud)
+            self._consumo.registrar_llm(usuario.id_usuario, OperacionIA.CUESTIONARIO, respuesta)
+            cuestionario, errores = self._parser.intentar_parse_cuestionario(respuesta.texto())
+            if cuestionario is not None:
+                return cuestionario
+            # Solo rutas y tipos de error: nunca el texto generado.
+            logger.warning(
+                "llm_respuesta_invalida operacion=CUESTIONARIO intento=%s errores=%s",
+                intento,
+                ",".join(errores),
+            )
+            texto = self._prompts.correccion_cuestionario(prompt, errores)
+        raise LLMRespuestaInvalidaError()
 
     def _guardar(
         self, id_usuario: uuid.UUID, tema: str, materia: str, preguntas: list[PreguntaGenerada]

@@ -1,12 +1,11 @@
 import logging
-import math
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.almacen.base import Almacen
 from app.core.config import Settings
-from app.core.tiempo import ahora_utc
+from app.core.tiempo import ahora_utc, segundos_hasta
 from app.core.unit_of_work import UnitOfWork
 from app.correo import plantillas
 from app.correo.base import Correo, CorreoClient
@@ -266,7 +265,7 @@ class AutorizacionService:
             disponible = ultima.fecha_solicitud + timedelta(
                 seconds=self._settings.autorizacion_reenvio_espera_segundos
             )
-            espera_minima = _segundos_hasta(disponible)
+            espera_minima = segundos_hasta(disponible)
         return max(espera_minima, self._espera_por_frecuencia(hash_estudiante))
 
     def _espera_por_frecuencia(self, correo_hash: str) -> int:
@@ -274,7 +273,7 @@ class AutorizacionService:
         fechas = self._autorizaciones.fechas_solicitud_desde(correo_hash, desde)
         if len(fechas) < self._settings.autorizacion_max_solicitudes_por_hora:
             return 0
-        return max(1, _segundos_hasta(min(fechas) + VENTANA_SOLICITUDES))
+        return max(1, segundos_hasta(min(fechas) + VENTANA_SOLICITUDES))
 
     def _espera_por_rechazo(self, hash_estudiante: str, hash_acudiente: str) -> int:
         bloqueo = timedelta(days=self._settings.autorizacion_bloqueo_rechazo_dias)
@@ -283,7 +282,7 @@ class AutorizacionService:
         )
         if rechazo is None or rechazo.fecha_verificacion is None:
             return 0
-        return max(1, _segundos_hasta(rechazo.fecha_verificacion + bloqueo))
+        return max(1, segundos_hasta(rechazo.fecha_verificacion + bloqueo))
 
     # Apoyo
     def _estudiante(self, id_usuario: uuid.UUID) -> Usuario:
@@ -397,7 +396,3 @@ class AutorizacionService:
             permite_compras=autorizacion.permite_compras,
             fecha_expiracion_token=autorizacion.fecha_expiracion_token,
         )
-
-
-def _segundos_hasta(momento: datetime) -> int:
-    return max(0, math.ceil((momento - ahora_utc()).total_seconds()))

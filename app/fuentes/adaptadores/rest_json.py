@@ -1,12 +1,16 @@
 """Índices académicos con API REST/JSON. Implementado: OpenAlex (metadatos CC0, acceso abierto)."""
 
+import threading
+import time
+from collections.abc import Callable
 from datetime import date
 from typing import Any
 
 import httpx
+from pydantic import SecretStr
 
 from app.core.config import ConfigProveedor
-from app.fuentes.adaptadores.http import obtener_json
+from app.fuentes.adaptadores.http import PoliticaReintento, obtener_json, turno
 from app.fuentes.base import FuenteCandidata, FuentesClient
 from app.models.enums import CategoriaFuente
 
@@ -22,6 +26,13 @@ AUTORIDAD_PREPRINT = 2
 AUTORIDAD_SIN_DATOS_DE_REVISION = 3
 TIPO_PREPRINT = "preprint"
 TIPO_TESIS = "dissertation"
+# Un 429 con reinicio de hasta estos segundos se espera y se reintenta una vez; uno más largo
+# (presupuesto diario agotado) degrada de inmediato con las demás fuentes.
+ESPERA_MAXIMA_429_SEGUNDOS = 3.0
+ESPERA_5XX_SEGUNDOS = 1.0
+ESPERA_TURNO_SEGUNDOS = 15.0
+# Máximo una petición simultánea a OpenAlex por proceso: su límite es por segundo y por día.
+_SEMAFORO_OPENALEX = threading.BoundedSemaphore(1)
 
 
 def _resumen_desde_indice(indice: dict[str, list[int]] | None) -> str:
@@ -62,34 +73,51 @@ def _fecha(valor: str | None) -> date | None:
 
 
 class OpenAlexFuentesClient(FuentesClient):
-    def __init__(self, config: ConfigProveedor, cliente: httpx.Client) -> None:
+    """La API key (OPENALEX_API_KEY, nunca dentro de FUENTES_PROVEEDORES) viaja en la cabecera
+    Authorization, no en la URL, y no se registra en logs ni errores. OpenAlex retiró `mailto`."""
+
+    def __init__(
+        self,
+        config: ConfigProveedor,
+        cliente: httpx.Client,
+        api_key: SecretStr | None = None,
+        dormir: Callable[[float], None] = time.sleep,
+    ) -> None:
         super().__init__(config.id, CategoriaFuente(config.categoria), config.autoridad)
         self._config = config
         self._http = cliente
+        self._api_key = api_key
+        self._politica = PoliticaReintento(ESPERA_MAXIMA_429_SEGUNDOS, ESPERA_5XX_SEGUNDOS, dormir)
 
     def buscar(self, consulta: str, idioma: str, limite: int) -> list[FuenteCandidata]:
-        datos = obtener_json(
-            self._http,
-            self._config.base_url,
-            self._parametros(consulta, idioma, limite),
-            self.proveedor,
-        )
+        with turno(_SEMAFORO_OPENALEX, ESPERA_TURNO_SEGUNDOS, self.proveedor):
+            datos = obtener_json(
+                self._http,
+                self._config.base_url,
+                self._parametros(consulta, idioma, limite),
+                self.proveedor,
+                self._cabeceras(),
+                self._politica,
+            )
         candidatas = [self._candidata(o) for o in datos.get("results", [])]
         return [c for c in candidatas if c.extracto and c.url]
 
     def cerrar(self) -> None:
         self._http.close()
 
-    def _parametros(self, consulta: str, idioma: str, limite: int) -> dict[str, Any]:
-        parametros: dict[str, Any] = {
+    def _cabeceras(self) -> dict[str, str] | None:
+        if self._api_key is None or not self._api_key.get_secret_value():
+            return None
+        return {"Authorization": f"Bearer {self._api_key.get_secret_value()}"}
+
+    @staticmethod
+    def _parametros(consulta: str, idioma: str, limite: int) -> dict[str, Any]:
+        return {
             "search": consulta,
             "filter": f"language:{idioma},is_oa:true",
             "per_page": limite,
             "select": CAMPOS_OPENALEX,
         }
-        if self._config.llave:
-            parametros["api_key"] = self._config.llave.get_secret_value()
-        return parametros
 
     def _candidata(self, obra: dict[str, Any]) -> FuenteCandidata:
         ubicacion = obra.get("primary_location") or {}

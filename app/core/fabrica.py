@@ -35,6 +35,7 @@ from app.repositories.uso import (
     UsoDiarioRepository,
 )
 from app.repositories.usuario import UsuarioRepository
+from app.repositories.verificacion_correo import VerificacionCorreoRepository
 from app.repositories.video import VideoCuradoRepository
 from app.repositories.visual import RecursoVisualRepository, TrabajoVisualRepository
 from app.services.actividad_service import ActividadService
@@ -48,6 +49,7 @@ from app.services.consentimiento_service import ConsentimientoService
 from app.services.consumo_service import ConsumoService
 from app.services.diagnostico_service import DiagnosticoService
 from app.services.evaluacion_service import EvaluacionService
+from app.services.fuentes.cache_fuentes import CacheBusquedaFuentes
 from app.services.fuentes.fuentes_service import FuentesService
 from app.services.fuentes.referencias_service import ReferenciasService
 from app.services.historial_service import HistorialService
@@ -72,6 +74,7 @@ from app.services.tutor.ejecutor_herramientas import EjecutorHerramientas
 from app.services.tutor.feedback_service import FeedbackService
 from app.services.tutor.tutor_service import TutorService
 from app.services.uso_service import UsoService
+from app.services.verificacion_correo_service import VerificacionCorreoService
 from app.services.videos.video_service import VideoService
 from app.services.visual.recurso_visual_service import RecursoVisualService
 from app.services.visual.trabajo_visual_service import TrabajoVisualService
@@ -127,6 +130,10 @@ class FabricaServicios:
     @cached_property
     def autorizaciones_repo(self) -> AutorizacionRepository:
         return AutorizacionRepository(self._s)
+
+    @cached_property
+    def verificaciones_repo(self) -> VerificacionCorreoRepository:
+        return VerificacionCorreoRepository(self._s)
 
     @cached_property
     def sesiones_repo(self) -> SesionDiagnosticoRepository:
@@ -271,7 +278,12 @@ class FabricaServicios:
 
     @cached_property
     def fuentes(self) -> FuentesService:
-        return FuentesService(self._c.fuentes, self.fuentes_repo, self.settings)
+        return FuentesService(
+            self._c.fuentes,
+            self.fuentes_repo,
+            self.settings,
+            CacheBusquedaFuentes(self.fabrica_uow, self.settings.fuentes_cache_horas),
+        )
 
     @cached_property
     def referencias(self) -> ReferenciasService:
@@ -362,6 +374,16 @@ class FabricaServicios:
         )
 
     @cached_property
+    def verificacion_correo(self) -> VerificacionCorreoService:
+        return VerificacionCorreoService(
+            self.verificaciones_repo,
+            self.usuarios_repo,
+            self._c.correo,
+            self.settings,
+            self.uow,
+        )
+
+    @cached_property
     def auth(self) -> AuthService:
         return AuthService(
             self.usuarios_repo,
@@ -370,6 +392,7 @@ class FabricaServicios:
             self._c.passwords,
             self.tokens,
             self.autorizacion,
+            self.verificacion_correo,
             self.consentimientos,
             self.limitador,
             self._c.indice,
@@ -576,6 +599,7 @@ class FabricaServicios:
             self.recursos_repo,
             self.autorizaciones_repo,
             self.usuarios_repo,
+            self.verificaciones_repo,
             self.supresor,
             self._c.almacen,
             self.settings,

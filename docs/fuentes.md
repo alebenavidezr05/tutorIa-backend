@@ -27,7 +27,7 @@ No existe la autoridad 1: el piso es `AUTORIDAD_PISO = 2` y toda candidata por d
 
 | Proveedor | Categoría | Adaptador | Estado | Autoridad | Términos y licencia revisados |
 |---|---|---|---|---|---|
-| OpenAlex (`api.openalex.org/works`) | `ACADEMICA_ABIERTA` | `openalex` | **activo** | 4 si la revista está en DOAJ, 3 tesis o sin dato de revisión, 2 preprint | Metadatos CC0. Sin llave hay un presupuesto diario compartido por IP; con llave gratuita (`api_key`) es mayor: **se recomienda crearla**. El resumen puede tener su propia licencia: solo se usan extractos cortos y siempre se cita la obra. (2026-10-18) |
+| OpenAlex (`api.openalex.org/works`) | `ACADEMICA_ABIERTA` | `openalex` | **activo** | 4 si la revista está en DOAJ, 3 tesis o sin dato de revisión, 2 preprint | Metadatos CC0. Sin llave hay un presupuesto diario muy limitado (en producción se avisa al arrancar); con llave gratuita es mayor: **se recomienda crearla** y ponerla en `OPENALEX_API_KEY` (viaja en la cabecera `Authorization: Bearer`, nunca en la URL ni en `FUENTES_PROVEEDORES`). Máximo 1 petición simultánea por proceso; ante 429 con `X-RateLimit-Reset` ≤ 3 s se reintenta una vez, si es mayor se degrada con las demás fuentes; ante 5xx, un reintento tras 1 s. El resumen puede tener su propia licencia: solo se usan extractos cortos y siempre se cita la obra. (2026-10-18) |
 | MedlinePlus en español (`wsearch.nlm.nih.gov/ws/query`, base `healthTopicsSpanish`) | `INSTITUCIONAL_OFICIAL` | `medlineplus` (XML) | **activo** | 4 | Servicio gratuito, sin registro. Los resúmenes de temas de salud (inglés y español) son de **dominio público** (obra del gobierno de EE. UU.); atribuir «Fuente: MedlinePlus, Biblioteca Nacional de Medicina». Límite: 85 peticiones/min por IP; NLM recomienda caché de 12–24 h (la caché de fuentes es de 30 días). Cobertura: solo salud. El contenido A.D.A.M. y las monografías de medicamentos tienen derechos y no se usan. (2026-10-29) |
 | DOAJ (`doaj.org/api/search/articles`) | `ACADEMICA_ABIERTA` | — | **pendiente** (sin adaptador) | 4 | Verificado: API JSON pública, metadatos de artículos y revistas **CC0**, resúmenes en español. Falta implementar el adaptador y confirmar los límites de uso en la documentación de la API. (2026-10-29) |
 | Portal CKAN de datos de gobierno | `INSTITUCIONAL_OFICIAL` | `ckan` | **pendiente de verificar** (desactivado) | 4 | `datos.gov.co` usa Socrata (no CKAN) y `datos.gob.ar` respondió 502 en la revisión anterior. |
@@ -93,3 +93,14 @@ guardados: `python -m app.scripts.depurar_fuentes_bloqueadas` (informe) y `--apl
 Excluidos por diseño (imágenes): buscadores que rastrean la web sin licencia verificable, redes
 sociales, bancos con licencias propias y cualquier imagen cuya licencia no se pueda normalizar
 (NC y ND siempre se rechazan).
+
+## Caché de búsquedas y fuentes no disponibles
+
+- Cada búsqueda se guarda por proveedor, idioma y tema normalizado (minúsculas, sin tildes ni
+  espacios sobrantes) en la tabla `cache_fuentes` durante `FUENTES_CACHE_HORAS` (72 h). Un acierto
+  no llama al proveedor. La clave es un SHA-256: el tema no se guarda en claro. No se cachean
+  errores ni resultados vacíos. La tabla la crea `create_all` al arrancar: no requiere migración.
+- Si las fuentes no alcanzan para el diagnóstico o el plan **porque un proveedor falló** (429,
+  5xx, timeout), la respuesta es `503 FUENTES_NO_DISPONIBLES` con `Retry-After` (el reinicio del
+  límite que informó el proveedor, o 60 s). Si todos respondieron y no hay fuentes verificables:
+  `404 TEMA_SIN_FUENTES`. En ningún caso se llama al modelo sin fuentes.

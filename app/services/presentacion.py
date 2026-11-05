@@ -25,6 +25,7 @@ def usuario_publico(usuario: Usuario, hoy: date, edad_mayoria: int) -> UsuarioPu
         nivel_educativo=usuario.nivel_educativo,
         estado_cuenta=usuario.estado_cuenta,
         es_menor=es_menor(usuario.fecha_nacimiento, hoy, edad_mayoria),
+        correo_verificado=usuario.correo_verificado,
         fecha_registro=usuario.fecha_registro,
     )
 

@@ -6,6 +6,7 @@ from app.core.unit_of_work import UnitOfWork
 from app.crypto.indice_ciego import IndiceCiego
 from app.exceptions.base import (
     AutorizacionPendienteError,
+    CorreoNoVerificadoError,
     CorreoYaRegistradoError,
     CredencialesInvalidasError,
     CuentaDesactivadaError,
@@ -27,6 +28,7 @@ from app.services.limitador_service import LimitadorFrecuencia
 from app.services.password_service import PasswordService
 from app.services.presentacion import usuario_publico
 from app.services.token_service import TokenService
+from app.services.verificacion_correo_service import VerificacionCorreoService
 from app.validators.edad import es_menor, validar_edad_minima, validar_fecha_nacimiento
 
 PREFIJO_LIMITE_IP = "login-ip:"
@@ -44,6 +46,7 @@ class AuthService:
         passwords: PasswordService,
         tokens: TokenService,
         autorizaciones: AutorizacionService,
+        verificacion_correo: VerificacionCorreoService,
         consentimientos: ConsentimientoService,
         limitador: LimitadorFrecuencia,
         indice: IndiceCiego,
@@ -56,6 +59,7 @@ class AuthService:
         self._passwords = passwords
         self._tokens = tokens
         self._autorizaciones = autorizaciones
+        self._verificacion_correo = verificacion_correo
         self._consentimientos = consentimientos
         self._limitador = limitador
         self._indice = indice
@@ -78,13 +82,15 @@ class AuthService:
         usuario = self._crear_usuario(entrada, correo_hash, menor)
         self._crear_suscripcion_y_perfil(usuario, entrada.acepta_personalizacion)
         self._consentimientos.registrar_en_registro(usuario, entrada, menor, contexto)
+        correo_verificacion = self._verificacion_correo.crear_para_registro(usuario)
         correo = (
             self._autorizaciones.crear_para_registro(usuario, correo_acudiente, contexto)
             if correo_acudiente
             else None
         )
         self._uow.commit()
-        # Si el envío falla no se falla el registro: el estudiante puede reenviar.
+        # Si un envío falla no se falla el registro: la persona puede usar «Reenviar».
+        self._verificacion_correo.enviar_sin_fallar(correo_verificacion)
         self._autorizaciones.enviar_sin_fallar(correo)
         return self._sesion(usuario)
 
@@ -121,6 +127,9 @@ class AuthService:
             raise TokenInvalidoError()
         if not usuario.activo:
             raise CuentaDesactivadaError()
+        # Dos condiciones independientes: correo verificado y, si es menor, autorización.
+        if not usuario.correo_verificado:
+            raise CorreoNoVerificadoError()
         if usuario.estado_cuenta == EstadoCuenta.PENDIENTE_AUTORIZACION:
             raise AutorizacionPendienteError()
         self._consentimientos.asegurar_vigente(usuario)
@@ -160,6 +169,7 @@ class AuthService:
                 version_token=0,
                 fecha_registro=ahora,
                 activo=True,
+                correo_verificado=False,
             )
         )
 

@@ -22,6 +22,8 @@ RUTAS_SOLO_SESION = {
     ("POST", "/api/v1/auth/logout"),
     ("POST", "/api/v1/privacidad/aceptar-politica"),
     ("GET", "/api/v1/autorizaciones/mia"),
+    ("POST", "/api/v1/auth/verificar-correo/reenviar"),
+    ("GET", "/api/v1/auth/verificar-correo/estado"),
     ("POST", "/api/v1/autorizaciones/reenviar"),
 }
 DEPENDENCIAS_DE_SESION = {get_usuario_actual_id, get_usuario_activo_id}

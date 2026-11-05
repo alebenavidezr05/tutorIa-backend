@@ -9,7 +9,11 @@ from urllib.parse import urlsplit
 from app.core.config import Settings
 from app.core.tiempo import ahora_utc
 from app.crypto.indice_ciego import sha256_hex
-from app.exceptions.base import TemaSinFuentesError
+from app.exceptions.base import (
+    AppError,
+    FuentesTemporalmenteNoDisponiblesError,
+    TemaSinFuentesError,
+)
 from app.fuentes.base import AUTORIDAD_PISO, FuenteCandidata, FuentesClient
 from app.fuentes.bloqueo import es_dominio_bloqueado, sin_bloqueadas
 from app.llm.prompts import FuenteContexto
@@ -17,7 +21,8 @@ from app.models.enums import CategoriaFuente, NivelCognitivo, TipoFuente, TipoNi
 from app.models.fuente import Fuente
 from app.repositories.fuente import FuenteRepository
 from app.schemas.fuente import FuentePublica
-from app.services.concurrencia import consultar_en_paralelo
+from app.services.concurrencia import ejecutar_en_paralelo
+from app.services.fuentes.cache_fuentes import CacheBusquedaFuentes
 from app.services.presentacion import fuente_publica
 from app.validators.fuentes import cumple_autoridad_minima
 from app.validators.texto import limpiar_texto_externo, normalizar_para_comparar
@@ -37,6 +42,8 @@ CATEGORIAS_EXIGIDAS_AVANZADO = {
     CategoriaFuente.ACADEMICA_ABIERTA,
     CategoriaFuente.INSTITUCIONAL_OFICIAL,
 }
+# Reintento sugerido cuando un proveedor falló sin indicar cuándo vuelve (5xx, timeout).
+REINTENTAR_EN_SEGUNDOS_POR_DEFECTO = 60
 CATEGORIAS_ESCOLARES = {
     CategoriaFuente.EDUCATIVA_ABIERTA,
     CategoriaFuente.REFERENCIA,
@@ -56,15 +63,23 @@ class FuentesService:
     para no abrir escrituras antes de llamar al modelo."""
 
     def __init__(
-        self, clientes: list[FuentesClient], fuentes: FuenteRepository, settings: Settings
+        self,
+        clientes: list[FuentesClient],
+        fuentes: FuenteRepository,
+        settings: Settings,
+        cache: CacheBusquedaFuentes | None = None,
     ) -> None:
         self._clientes = clientes
         self._fuentes = fuentes
         self._settings = settings
+        self._cache = cache
         self._pendientes: dict[uuid.UUID, Fuente] = {}
         self._refrescos: dict[uuid.UUID, tuple[Fuente, FuenteCandidata]] = {}
+        # Si algún proveedor falló en la última recopilación, y en cuántos segundos reintentar.
+        self._reintentar_en: int | None = None
 
     def recopilar(self, consulta: str, contexto: ContextoFuentes) -> list[Fuente]:
+        self._reintentar_en = None
         categorias = self._categorias(contexto)
         candidatas = self._aceptables(self._consultar(consulta, categorias))
         minimo = self.autoridad_minima(contexto.nivel)
@@ -85,6 +100,12 @@ class FuentesService:
         if self._settings.fuentes_obligatorias and not cumple_autoridad_minima(
             self._autoridades_que_respaldan(fuentes), minimo
         ):
+            # Sin fuentes por un fallo del proveedor (429, 5xx, timeout) no es culpa del tema:
+            # 503 con Retry-After. Si todos respondieron y no hay fuentes: TEMA_SIN_FUENTES.
+            if self._reintentar_en is not None:
+                raise FuentesTemporalmenteNoDisponiblesError(
+                    cabeceras={"Retry-After": str(self._reintentar_en)}
+                )
             raise TemaSinFuentesError()
         return fuentes
 
@@ -162,12 +183,33 @@ class FuentesService:
     def _consultar(self, consulta: str, categorias: set[CategoriaFuente]) -> list[FuenteCandidata]:
         limite = self._settings.fuentes_max_por_turno
         idioma = self._settings.fuentes_idiomas[0]
+        clientes = [c for c in self._clientes if c.categoria in categorias]
+        en_cache = (
+            self._cache.leer([c.proveedor for c in clientes], idioma, consulta)
+            if self._cache
+            else {}
+        )
         tareas = [
-            (lambda c=cliente: c.buscar(consulta, idioma, limite))
-            for cliente in self._clientes
-            if cliente.categoria in categorias
+            (lambda c=cliente: [(c.proveedor, c.buscar(consulta, idioma, limite))])
+            for cliente in clientes
+            if cliente.proveedor not in en_cache
         ]
-        return consultar_en_paralelo(tareas, self._settings.fuentes_timeout_segundos)
+        resultado = ejecutar_en_paralelo(tareas, self._settings.fuentes_timeout_segundos)
+        if resultado.degradado:
+            self._anotar_fallo(resultado.errores)
+        nuevos = dict(resultado.resultados)
+        if self._cache:
+            self._cache.guardar(idioma, consulta, nuevos)
+        return [c for lista in (*en_cache.values(), *nuevos.values()) for c in lista]
+
+    def _anotar_fallo(self, errores: list[BaseException]) -> None:
+        sugeridos = [
+            int(e.cabeceras["Retry-After"])
+            for e in errores
+            if isinstance(e, AppError) and e.cabeceras and "Retry-After" in e.cabeceras
+        ]
+        espera = max(sugeridos, default=REINTENTAR_EN_SEGUNDOS_POR_DEFECTO)
+        self._reintentar_en = max(espera, self._reintentar_en or 0)
 
     def _autoridades_que_respaldan(self, fuentes: Iterable[FuenteCandidata | Fuente]) -> list[int]:
         """La prensa aporta contexto, pero no cumple sola la autoridad mínima del nivel salvo que

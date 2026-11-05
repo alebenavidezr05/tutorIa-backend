@@ -64,9 +64,11 @@ def _candado_creacion(engine: Engine) -> Iterator[None]:
 
 def crear_tablas(engine: Engine) -> None:
     import app.models  # noqa: F401  (registra todas las entidades en Base.metadata)
+    from app.core.migraciones import aplicar_migraciones
 
     with _candado_creacion(engine):
         Base.metadata.create_all(engine)
+        aplicar_migraciones(engine)
 
 
 def eliminar_tablas(engine: Engine) -> None:

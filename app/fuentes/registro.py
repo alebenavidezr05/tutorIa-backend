@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 
 import httpx
@@ -21,6 +22,9 @@ ADAPTADORES: dict[str, ConstructorFuentes] = {
     "medlineplus": MedlinePlusFuentesClient,
 }
 ADAPTADOR_FALSO = "fake"
+ADAPTADOR_OPENALEX = "openalex"
+
+logger = logging.getLogger(__name__)
 
 
 def validar_proveedores_texto(settings: Settings) -> None:
@@ -48,7 +52,17 @@ def _construir(config: ConfigProveedor, settings: Settings) -> FuentesClient:
     if config.adaptador not in ADAPTADORES:
         raise ValueError(f"Adaptador de fuentes no implementado: {config.adaptador}")
     cliente = crear_cliente_http(settings.fuentes_user_agent, settings.fuentes_timeout_segundos)
+    if config.adaptador == ADAPTADOR_OPENALEX:
+        return OpenAlexFuentesClient(config, cliente, settings.openalex_api_key)
     return ADAPTADORES[config.adaptador](config, cliente)
+
+
+def avisar_configuracion(settings: Settings, activos: list[ConfigProveedor]) -> None:
+    """Sin clave OpenAlex funciona igual, pero su presupuesto diario es muy limitado."""
+    usa_openalex = any(c.adaptador == ADAPTADOR_OPENALEX for c in activos)
+    clave = settings.openalex_api_key
+    if settings.es_produccion and usa_openalex and not (clave and clave.get_secret_value()):
+        logger.warning("OpenAlex sin API key: presupuesto diario muy limitado")
 
 
 def construir_fuentes(settings: Settings) -> list[FuentesClient]:
@@ -56,4 +70,5 @@ def construir_fuentes(settings: Settings) -> list[FuentesClient]:
     activos = [c for c in settings.fuentes_proveedores if c.activo]
     if not settings.fuentes_web_search_activa:
         activos = [c for c in activos if c.categoria != CategoriaFuente.WEB_GENERAL]
+    avisar_configuracion(settings, activos)
     return [_construir(c, settings) for c in activos]

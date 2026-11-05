@@ -8,6 +8,8 @@ RUTAS_PUBLICAS: frozenset[tuple[str, str]] = frozenset(
         ("POST", f"{PREFIJO_API}/auth/registro"),
         # Iniciar sesión: no se puede exigir una sesión para obtenerla.
         ("POST", f"{PREFIJO_API}/auth/login"),
+        # El enlace del correo puede abrirse en otro dispositivo: se autentica con el token.
+        ("POST", f"{PREFIJO_API}/auth/verificar-correo"),
         # Sondas de Docker y del balanceador: no exponen datos.
         ("GET", f"{PREFIJO_API}/health"),
         ("GET", f"{PREFIJO_API}/health/ready"),
