@@ -4,10 +4,12 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.database import eliminar_tablas
 from app.exceptions.base import LLMNoDisponibleError
 from app.llm.fake_client import FakeClient, plan_falso, respuesta_texto
 from tests.conftest import (
     CONTRASENA,
+    ORIGEN,
     contenedor_de,
     crear_diagnostico,
     datos_registro,
@@ -305,6 +307,24 @@ class TestSuscripcionYPagos:
         assert historial["total"] == min(
             settings.limite_planes_gratis, settings.historial_items_gratis
         )
+
+
+def test_pagos_desactivados_con_pasarela_ninguna(settings: Any) -> None:
+    from app.main import create_app
+
+    app = create_app(settings.model_copy(update={"pasarela_proveedor": "ninguna"}))
+    with TestClient(app, headers={"Origin": ORIGEN}) as cliente:
+        assert contenedor_de(cliente).pasarela is None
+        registrar(cliente)
+        assert cliente.get("/api/v1/suscripcion").json()["plan"] == "GRATUITO"
+        iniciar_conversacion(cliente, tema="átomos")
+        checkout = cliente.post("/api/v1/suscripcion/checkout")
+        webhook = cliente.post("/api/v1/pagos/webhook/fake", content=b"{}")
+        for respuesta in (checkout, webhook):
+            assert respuesta.status_code == 503
+            assert respuesta.json()["error"]["codigo"] == "PAGOS_NO_DISPONIBLES"
+            assert respuesta.json()["error"]["mensaje"] == "Los pagos no están disponibles."
+        eliminar_tablas(contenedor_de(cliente).engine)
 
 
 def test_tope_diario_atomico(client: TestClient) -> None:

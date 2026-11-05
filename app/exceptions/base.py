@@ -261,6 +261,12 @@ class PasarelaPagosError(AppError):
     mensaje_por_defecto = "La pasarela de pagos no está disponible. Intenta más tarde."
 
 
+class PagosNoDisponiblesError(AppError):
+    status_code = 503
+    codigo = "PAGOS_NO_DISPONIBLES"
+    mensaje_por_defecto = "Los pagos no están disponibles."
+
+
 class ProveedorNoDisponibleError(AppError):
     """Base de fallos internos de proveedores que el sistema degrada sin mostrar al estudiante."""
 

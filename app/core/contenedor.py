@@ -51,7 +51,7 @@ class Contenedor:
     videos: VideosClient
     almacen: Almacen
     correo: CorreoClient
-    pasarela: PasarelaPagos
+    pasarela: PasarelaPagos | None
     indice: IndiceCiego
     firmador: FirmadorJwt
     passwords: PasswordService

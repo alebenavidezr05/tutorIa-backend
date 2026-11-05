@@ -264,7 +264,8 @@ class Settings(BaseSettings):
     limite_temas_gratis: int = 1
     historial_items_gratis: int = 5
     premium_precio_anual_cop: int = 130_000
-    pasarela_proveedor: Literal["fake"] = "fake"
+    # "ninguna" desactiva el módulo de pagos (producción sin pasarela real).
+    pasarela_proveedor: Literal["fake", "ninguna"] = "fake"
     pasarela_secreto_webhook: SecretStr = SecretStr("solo-desarrollo-secreto-webhook-000000")
 
     # Seguridad infantil y retención
@@ -361,7 +362,6 @@ def _errores_proveedores(settings: Settings) -> list[str]:
         "CORREO_PROVEEDOR": settings.correo_proveedor,
         "CIFRADO_PROVEEDOR": settings.cifrado_proveedor,
         "ALMACEN_PROVEEDOR": settings.almacen_proveedor,
-        "PASARELA_PROVEEDOR": settings.pasarela_proveedor,
         "VIDEOS_PROVEEDOR": settings.videos_proveedor,
     }
     errores = [
@@ -369,6 +369,11 @@ def _errores_proveedores(settings: Settings) -> list[str]:
         for nombre, valor in proveedores.items()
         if valor in PROVEEDORES_FALSOS
     ]
+    if settings.pasarela_proveedor in PROVEEDORES_FALSOS:
+        errores.append(
+            f"PASARELA_PROVEEDOR={settings.pasarela_proveedor} no se permite en producción; "
+            "usa 'ninguna' o un adaptador real"
+        )
     adaptadores = [*settings.fuentes_proveedores, *settings.imagenes_proveedores]
     if any(p.activo and p.adaptador in PROVEEDORES_FALSOS for p in adaptadores):
         errores.append("los proveedores de fuentes e imágenes 'fake' no se permiten en producción")

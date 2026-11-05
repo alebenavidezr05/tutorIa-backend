@@ -74,8 +74,8 @@ def test_produccion_rechaza_cifrado_local_y_secretos_cortos(settings: Settings) 
         Settings(**{**settings.model_dump(), "app_env": "production"})
 
 
-def test_produccion_valida_con_configuracion_completa(settings: Settings) -> None:
-    datos = {
+def _datos_produccion(settings: Settings, pasarela: str) -> dict[str, object]:
+    return {
         **settings.model_dump(),
         "app_env": "production",
         "jwt_secret": "x" * 40,
@@ -94,10 +94,22 @@ def test_produccion_valida_con_configuracion_completa(settings: Settings) -> Non
         "responsable_razon_social": "TutorIA S.A.S.",
         "responsable_nit": "900000000",
         "responsable_domicilio": "Bogotá",
-        "pasarela_proveedor": "fake",
+        "pasarela_proveedor": pasarela,
+        "pasarela_secreto_webhook": "",
     }
-    with pytest.raises(ValidationError, match="PASARELA_PROVEEDOR"):
-        Settings(**datos)
+
+
+def test_produccion_carga_con_pasarela_ninguna(settings: Settings) -> None:
+    cargada = Settings(**_datos_produccion(settings, "ninguna"))
+    assert cargada.es_produccion and cargada.pasarela_proveedor == "ninguna"
+
+
+def test_produccion_rechaza_pasarela_fake(settings: Settings) -> None:
+    with pytest.raises(
+        ValidationError,
+        match="PASARELA_PROVEEDOR=fake no se permite en producción; usa 'ninguna' o un adaptador real",
+    ):
+        Settings(**_datos_produccion(settings, "fake"))
 
 
 def test_llave_local_es_base64_de_32_bytes(settings: Settings) -> None:

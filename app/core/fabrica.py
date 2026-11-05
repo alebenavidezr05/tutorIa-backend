@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.contenedor import Contenedor
 from app.core.unit_of_work import FabricaUnitOfWork, UnitOfWork
+from app.exceptions.base import PagosNoDisponiblesError
 from app.llm.parser import LLMResponseParser
 from app.llm.prompts import PromptBuilder
 from app.llm.prompts_tutor import ConsolidacionPromptBuilder, TutorPromptBuilder
@@ -445,6 +446,8 @@ class FabricaServicios:
 
     @cached_property
     def pagos(self) -> PagoService:
+        if self._c.pasarela is None:
+            raise PagosNoDisponiblesError()
         return PagoService(
             self.suscripciones_repo,
             self.eventos_pago_repo,
